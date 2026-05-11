@@ -1,0 +1,127 @@
+CourseID,CourseName,Prerequisite,Condition
+CSE011,Computer Skills,None,NONE
+CSE014,Structured Programming,CSE014,MANDATORY
+CSE081,Digital Branding,None,NONE
+CSE111,Data Structures,CSE015,MANDATORY
+CSE112,Design & Analysis of Algorithms,CSE111,MANDATORY
+CSE113,Electric &Electronic Circuits,PHY212,MANDATORY
+CSE131,Logic Design,None,NONE
+CSE132,Computer Architecture &Organization,CSE131,MANDATORY
+CSE191,Field Training 1 in Computer Science,CSE015,MANDATORY
+CSE221,Database Systems,CSE111,MANDATORY
+CSE233,Operating Systems,CSE111,MANDATORY
+CSE234,Embedded Systems,CSE132,MANDATORY
+CSE241,Security of Information Systems,CSE112,MANDATORY
+CSE243,Secure Programming,CSE241,MANDATORY
+CSE251,Software Engineering,CSE015,MANDATORY
+CSE262,"Introduction to Telecommunications,Networking and Security",CSE014,MANDATORY
+CSE271,Introduction to Parallel Computing,CSE112,MANDATORY
+CSE272,Parallel &distributed Systems,CSE132,MANDATORY
+CSE281,Image Processing,CSE015,AND
+CSE281,Image Processing,MAT212,AND
+CSE291,Field Training 1 in Computer Engineering,CSE191,MANDATORY
+CSE293,Field Training 2 in Information Technology,CSE192,MANDATORY
+CSE312,Advanced Web Programming,CSE211,MANDATORY
+CSE313,Mobile Programming,CSE015,MANDATORY
+CSE315,Discrete Mathematics,None,NONE
+CSE322,Big Data Analytics 1,AIE121,MANDATORY
+CSE323,Advanced database systems,CSE221,MANDATORY
+CSE335,Real Time & Embedded Systems Design,CSE234,MANDATORY
+CSE344,Introduction to Cyber Security,CSE261,MANDATORY
+CSE362,Industrial Networks,CSE261,OR
+CSE362,Industrial Networks,CSE262,OR
+CSE363,Cloud Computing,CSE261,OR
+CSE363,Cloud Computing,CSE262,OR
+CSE373,Parallel programming,CSE015,MANDATORY
+CSE382,Computer Graphics,CSE281,MANDATORY
+CSE383,Computer Vision,CSE281,MANDATORY
+CSE392,Field Training 2 in Computer Engineering,CSE291,MANDATORY
+CSE425,Big Data Analytics 2,CSE322,MANDATORY
+CSE426,Selected Topics in Data Science,CSE322,MANDATORY
+CSE424,Data Warehousing,CSE323,MANDATORY
+CSE427,Selected Topics in Big Data,CSE322,MANDATORY
+CSE447,Selected Topics in Computer Security,CSE241,MANDATORY
+CSE445,Selected Topics in Information Security,CSE241,MANDATORY
+CSE446,Information &Computer Networks Security,CSE261,MANDATORY
+CSE453,Building Information Systems,CSE251,MANDATORY
+CSE455,Selected Topics in Software Engineering,CSE251,MANDATORY
+CSE464,Internet of Things,CSE261,MANDATORY
+CSE465,Selected Topics in cloud computing,CSE363,MANDATORY
+CSE466,Selected Topics in IoT,CSE464,MANDATORY
+CSE467,Client/Server Technologies &Applications,None,NONE
+CSE468,Web Server Administration,CSE262,MANDATORY
+CSE474,Distributed Information Systems,CSE221,AND
+CSE474,Distributed Information Systems,CSE261,AND
+CSE475,High Performance Computing,CSE271,MANDATORY
+CSE476,Selected Topics in high performance computing,CSE475,MANDATORY
+CSE484,Interactive Multimedia,CSE382,MANDATORY
+CSE488,Visualization &Animation,CSE382,MANDATORY
+CSE485,Computer Games Theory,CSE382,MANDATORY
+CSE486,Selected Topics in Computer Vision,CSE383,MANDATORY
+CSE487,Mixed &Augmented Reality,CSE382,MANDATORY
+CSE493,Graduation Project 1,{SENIOR STANDING},MANDATORY
+CSE494,Graduation Project 2,CSE493,MANDATORY
+AIE121,Machine Learning,AIE111,MANDATORY
+AIE213,Optimization techniques,MAT312,MANDATORY
+AIE291,Field Training 1 in AI Engineering,None,NONE
+AIE231,Neural Networks,AIE121,MANDATORY
+AIE241,Natural Language Processing,AIE121,MANDATORY
+AIE292,Field Training 2 in AI Science,AIE191,MANDATORY
+AIE314,AI-based programming,AIE212,MANDATORY
+AIE315,Computational Logic,AIE111,MANDATORY
+AIE316,Evolutionary Algorithms,AIE213,MANDATORY
+AIE317,Artificial intelligence in medicine,None,NONE
+AIE322,Advanced Machine Learning,AIE121,MANDATORY
+AIE323,Data Mining,AIE121,MANDATORY
+AIE343,Machine Learning for Text Mining,AIE323,AND
+AIE343,Machine Learning for Text Mining,AIE241,AND
+AIE332,Deep Learning,AIE111,MANDATORY
+AIE392,Field Training 2 in AI Engineering,AIE291,MANDATORY
+AIE424,Intelligent Decision Support Systems,AIE323,MANDATORY
+AIE418,Selected Topics in Artificial Intelligence 2,AIE111,MANDATORY
+AIE425,Intelligent Recommender Systems,AIE323,MANDATORY
+AIE417,Selected Topics in Artificial Intelligence 1,AIE111,MANDATORY
+AIE419,Artificial intelligence for computer games,None,NONE
+AIE426,Decision Making under Uncertainty,AIE323,MANDATORY
+AIE444,Question Answering Systems,AIE241,MANDATORY
+AIE427,Statistical Pattern Recognition,AIE322,MANDATORY
+AIE453,Planning Techniques for Robotics,AIE351,MANDATORY
+AIE454,Robot Kinematics &Dynamics,AIE351,MANDATORY
+AIE455,Robot Mapping &Localization,AIE351,MANDATORY
+AIE456,Human Robot Interaction,AIE351,MANDATORY
+AIE457,Mobile Robot Development,AIE351,MANDATORY
+AIE493,Graduation Project 1,{SENIOR STANDING},MANDATORY
+AIE494,Graduation Project 2,AIE493,MANDATORY
+CSE012,Scientific Applications of Computers,None,NONE
+CSE013,Introduction to Information systems & technology,None,NONE
+CSE015,Object Oriented Programming,CSE014,MANDATORY
+CSE192,Field Training 1 in Information Technology,None,NONE
+CSE211,Web Programming,CSE015,MANDATORY
+CSE232,Operating Systems Administration,CSE014,MANDATORY
+CSE242,Cryptography,CSE112,MANDATORY
+CSE261,Computer Networks,CSE014,AND
+CSE261,Computer Networks,CSE132,AND
+CSE292,Field Training 2 in Computer Science,CSE191,MANDATORY
+CSE311,Design of Compilers,CSE015,MANDATORY
+CSE314,Android and iOS Development,CSE313,MANDATORY
+CSE321,Societal and Ethical Issues in Information Technology,None,NONE
+CSE324,IT Management and Operations,None,NONE
+CSE325,Database Systems Administration,CSE221,MANDATORY
+CSE351,Software Project Management,None,NONE
+CSE352,Systems Analysis &Design,CSE251,MANDATORY
+CSE353,Interaction Design,None,NONE
+CSE361,Networks Virtualization and Administration,CSE261,OR
+CSE361,Networks Virtualization and Administration,CSE262,OR
+CSE411,Theory of Computation & Compilers,CSE014,MANDATORY
+CSE436,Selected Topics in Embedded Systems,CSE234,MANDATORY
+CSE448,Cyber Forensics,None,NONE
+CSE454,Advanced Software Engineering,CSE251,MANDATORY
+CSE463,Advanced Networking,CSE261,OR
+CSE463,Advanced Networking,CSE262,OR
+AIE111,Artificial Intelligence,CSE015,MANDATORY
+AIE122,Basics of Machine Learning and Data Science,MAT131,MANDATORY
+AIE191,Field Training 1 in AI Science,None,NONE
+AIE212,Knowledge-based Systems,AIE111,MANDATORY
+AIE342,Advanced Methods for Data Analysis,AIE323,MANDATORY
+AIE351,Robotics Design,AIE111,MANDATORY
+AIE452,Cognitive Robotics,AIE351,MANDATORY

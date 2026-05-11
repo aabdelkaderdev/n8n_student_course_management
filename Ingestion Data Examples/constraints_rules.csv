@@ -1,0 +1,6 @@
+Constraint_ID,Rule_Name,Target_GPA_Min,Target_GPA_Max,Value,Description
+C001,MAX_CREDITS_REGULAR,2.16,4.0,18,Students in good standing can take a maximum of 18 credit hours.
+C002,MAX_CREDITS_WARNING,2.0,2.15,14,Students with borderline GPAs are restricted to 14 credit hours to stabilize their standing.
+C003,MAX_CREDITS_PROBATION,0.0,1.99,12,Students on academic probation are strictly limited to a maximum of 12 credit hours.
+C004,AUTO_OPEN_FAIL_THRESHOLD,,,30,If this number of students fails a prerequisite across the program the course must be forced open next term.
+C005,MIN_CREDITS_FULLTIME,,,9,A student must register for at least 9 credit hours to maintain full-time enrollment status.

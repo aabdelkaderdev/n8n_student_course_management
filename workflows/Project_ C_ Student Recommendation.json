@@ -1,0 +1,1438 @@
+{
+  "name": "Project: C: Student Recommendation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "student/chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "343a4c01-8325-4eca-aa23-d768b3faa8bd",
+      "name": "Student Web Webhook",
+      "position": [
+        -832,
+        608
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "webhookId": "dc3df620-0c51-4c37-a040-59c5aa5f8948",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "430dd606-1db3-4743-a68c-316559a4f47b",
+      "name": "Telegram Trigger",
+      "position": [
+        -832,
+        832
+      ],
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "webhookId": "telegram-student-hub",
+      "credentials": {
+        "telegramApi": {
+          "id": "3l13YK5R0D1n673L",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Omnichannel Extractor (v2 — with current_semester)\nlet source, studentId, message, chatId, careerGoal, currentSemester;\nconst rawData = $input.first().json;\nif (rawData.message && rawData.message.chat) {\n    // TELEGRAM SOURCE\n    source = 'telegram'; chatId = String(rawData.message.chat.id);\n    const text = rawData.message.text || '';\n    const parts = text.trim().split(/\\s+/);\n    message = parts[0] || ''; studentId = parts[1] || '';\n    // Parse semester: /recommend <ID> <semester> <career goal...>\n    const semPart = parseInt(parts[2]);\n    if (!isNaN(semPart) && semPart >= 1 && semPart <= 10) {\n        currentSemester = semPart;\n        careerGoal = parts.slice(3).join(' ') || '';\n    } else {\n        currentSemester = null;\n        careerGoal = parts.slice(2).join(' ') || '';\n    }\n} else {\n    // WEB SOURCE\n    source = 'web'; chatId = null;\n    const body = rawData.body || rawData;\n    message = body.message || ''; studentId = body.student_id || ''; careerGoal = body.career_goal || '';\n    currentSemester = (body.current_semester && body.current_semester >= 1 && body.current_semester <= 10) ? parseInt(body.current_semester) : null;\n}\nif (message.startsWith('/recommend') && (!studentId || studentId.length < 5)) {\n    return [{ json: { source, chatId, error: true, error_message: 'Invalid format. Usage: /recommend <StudentID> <Semester> <CareerGoal>' }}];\n}\nreturn [{ json: { source, chatId, student_id: studentId, message, career_goal: careerGoal, current_semester: currentSemester, error: false } }];"
+      },
+      "id": "4be6aa0c-9edb-486b-bf69-61db1b3efa32",
+      "name": "Omnichannel Extractor",
+      "position": [
+        -544,
+        704
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "route-recommend",
+                    "leftValue": "={{ $json.message }}",
+                    "operator": {
+                      "operation": "startsWith",
+                      "type": "string"
+                    },
+                    "rightValue": "/recommend"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "recommend"
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "route-slot",
+                    "leftValue": "={{ $json.message }}",
+                    "operator": {
+                      "operation": "startsWith",
+                      "type": "string"
+                    },
+                    "rightValue": "/request-slot"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "slot-request"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 3
+        }
+      },
+      "id": "7513dfd7-1135-4501-a7db-c683b952c872",
+      "name": "Router",
+      "position": [
+        -288,
+        704
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM recommendation_cache WHERE student_id = '{{ $json.student_id }}' AND created_at > NOW() - INTERVAL '24 hours';",
+        "options": {}
+      },
+      "alwaysOutputData": true,
+      "id": "e1206ef1-5f29-4bf4-afb6-149ad58b6fed",
+      "name": "Cache Check",
+      "position": [
+        -32,
+        512
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nlet hasValidCourses = false;\nif (item && item.student_id && item.recommended_courses) {\n    const rc = item.recommended_courses;\n    if (Array.isArray(rc.courses)) { hasValidCourses = rc.courses.length > 0; }\n    else if (Array.isArray(rc)) { hasValidCourses = rc.length > 0; }\n}\nif (hasValidCourses) {\n    return [{ json: { cache_hit: true, ...item } }];\n} else {\n    return [{ json: { cache_hit: false, student_id: $('Omnichannel Extractor').first().json.student_id } }];\n}"
+      },
+      "id": "d920b215-65a7-4225-ad1b-e67bb74e3058",
+      "name": "Cache Normalizer",
+      "position": [
+        112,
+        512
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cache-hit-check",
+              "leftValue": "={{ $json.cache_hit }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          }
+        },
+        "options": {}
+      },
+      "id": "5161c557-e14b-4e17-948d-d78cd62f9651",
+      "name": "Cache Gate",
+      "position": [
+        240,
+        512
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const cached = $input.first().json;\nlet fullResponse = cached.full_response;\nif (typeof fullResponse === 'string') { try { fullResponse = JSON.parse(fullResponse); } catch(e) {} }\nreturn [{ json: fullResponse }];"
+      },
+      "id": "ddd6cc2a-b0c2-4c44-8ae9-08b21a2146b2",
+      "name": "Extract Cached Response",
+      "position": [
+        496,
+        208
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT s.*, json_agg(json_build_object('course_code', sg.course_code, 'grade', sg.grade, 'unit_taken', sg.unit_taken)) AS grades FROM students s LEFT JOIN student_grades sg ON s.student_id = sg.student_id WHERE s.student_id = '{{ $(\"Omnichannel Extractor\").first().json.student_id }}' GROUP BY s.student_id;",
+        "options": {}
+      },
+      "id": "dd9a2df2-995e-4c59-a27a-281ba310c81e",
+      "name": "Get Student Profile",
+      "position": [
+        496,
+        384
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT course_code, prerequisite_code, condition FROM prerequisites;",
+        "options": {}
+      },
+      "id": "e098032b-c887-49bf-badb-2d7ce4b066bf",
+      "name": "Get Prerequisites",
+      "position": [
+        496,
+        528
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM constraints;",
+        "options": {}
+      },
+      "id": "fc47a5e7-c8e7-48ab-8325-9276b9bf1f28",
+      "name": "Get Constraints",
+      "position": [
+        496,
+        672
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT gs.course_code, gs.course_name, gs.program_code, gs.section, gs.component, gs.day, gs.period, gs.room_id, gs.capacity, COALESCE(sp.credits, 3) AS credits, sp.semester_number AS study_plan_term\nFROM generated_schedule gs\nLEFT JOIN study_plan_entries sp\n  ON gs.course_code = sp.course_code\n  AND sp.program_code = (\n    SELECT program_code FROM students\n    WHERE student_id = '{{ $(\"Omnichannel Extractor\").first().json.student_id }}'\n  )\n",
+        "options": {}
+      },
+      "id": "ccfa98ba-b0fe-412c-8415-f86e4db86333",
+      "name": "Get Offered Courses",
+      "position": [
+        496,
+        816
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 6
+      },
+      "id": "b6144254-dc6b-4bd7-819a-d3d476084c86",
+      "name": "Merge Data",
+      "position": [
+        752,
+        592
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Hard Logic Pre-Filter v5\n// Paste this body into the n8n Code node named \"Hard Logic Pre-Filter\".\n// Output schema intentionally matches v4 for downstream prompt/parser compatibility.\n\nconst inputData = $input.all();\nconst allDataObjects = [];\n\nfor (const item of inputData) {\n    if (item.json && Array.isArray(item.json.data)) {\n        for (const obj of item.json.data) allDataObjects.push(obj);\n    } else if (item.json) {\n        allDataObjects.push(item.json);\n    }\n}\n\nconst extractor = $('Omnichannel Extractor').first().json;\nconst studentId = extractor.student_id;\nconst careerGoal = extractor.career_goal || '';\nconst requestedSemester = parseSemester(extractor.current_semester);\n\nconst studentRow = allDataObjects.find(obj => obj.student_id && obj.grades);\nconst prereqRows = allDataObjects.filter(obj => obj.prerequisite_code);\nconst constraintRows = allDataObjects.filter(obj => obj.constraint_id);\nconst scheduleRows = allDataObjects.filter(obj => obj.component && obj.day);\nconst studyPlanRows = allDataObjects.filter(obj => obj.semester_number != null && !obj.component && !obj.group_code);\nconst electiveGroupRows = allDataObjects.filter(obj => obj.group_code != null);\n\nif (!studentRow) {\n    return [{ json: { error: true, error_message: `Student ID \"${studentId}\" not found.` } }];\n}\n\nfunction norm(value) {\n    return value == null ? '' : String(value).trim();\n}\n\nfunction toUpper(value) {\n    return norm(value).toUpperCase();\n}\n\nfunction toNumber(value, fallback = 0) {\n    const parsed = parseFloat(value);\n    return Number.isFinite(parsed) ? parsed : fallback;\n}\n\nfunction parseSemester(value) {\n    const parsed = parseInt(value, 10);\n    return Number.isInteger(parsed) && parsed >= 1 && parsed <= 10 ? parsed : null;\n}\n\nfunction isElectivePlaceholder(courseCode) {\n    return /^E\\d+$/i.test(norm(courseCode));\n}\n\nfunction isNonCoursePlaceholder(courseCode) {\n    return /^(E|UE)\\d+$/i.test(norm(courseCode));\n}\n\nconst grades = Array.isArray(studentRow.grades) ? studentRow.grades.filter(g => g && g.course_code && g.grade) : [];\nconst failingGrades = new Set(['F', 'FW']);\nconst nonPassingGrades = new Set(['F', 'FW', 'W', 'U']);\n\nconst passedCourseSet = new Set();\nconst failedCourseCandidates = new Set();\n\nfor (const gradeRow of grades) {\n    const courseCode = norm(gradeRow.course_code);\n    const grade = toUpper(gradeRow.grade);\n    if (!courseCode || !grade) continue;\n\n    if (failingGrades.has(grade)) failedCourseCandidates.add(courseCode);\n    if (!nonPassingGrades.has(grade)) passedCourseSet.add(courseCode);\n}\n\nconst passedCourses = [...passedCourseSet];\nconst failedCourses = [...failedCourseCandidates].filter(code => !passedCourseSet.has(code));\n\nconst prereqGraph = {};\nfor (const row of prereqRows) {\n    const courseCode = norm(row.course_code);\n    const prereqCode = norm(row.prerequisite_code);\n    const condition = toUpper(row.condition || 'NONE');\n    if (!courseCode) continue;\n\n    if (!prereqGraph[courseCode]) {\n        prereqGraph[courseCode] = { prerequisites: [], condition };\n    }\n\n    if (prereqCode && toUpper(prereqCode) !== 'NONE' && prereqCode !== courseCode) {\n        prereqGraph[courseCode].prerequisites.push(prereqCode);\n    }\n\n    if (condition !== 'NONE') prereqGraph[courseCode].condition = condition;\n}\n\nfunction checkPrereqs(courseCode) {\n    const pr = prereqGraph[courseCode];\n    if (!pr || pr.condition === 'NONE' || pr.prerequisites.length === 0) return true;\n\n    if (pr.condition === 'MANDATORY' || pr.condition === 'AND') {\n        return pr.prerequisites.every(p => passedCourseSet.has(p));\n    }\n\n    if (pr.condition === 'OR') {\n        return pr.prerequisites.some(p => passedCourseSet.has(p));\n    }\n\n    return false;\n}\n\nconst constraintsData = {};\nfor (const c of constraintRows) {\n    if (c.constraint_id) constraintsData[c.constraint_id] = c;\n}\n\nconst gpa = toNumber(studentRow.cumulative_gpa, 0);\nlet maxCredits = 18;\n\nif (constraintsData.C003 && gpa < toNumber(constraintsData.C003.gpa_max, 1.99) + 0.01) {\n    maxCredits = toNumber(constraintsData.C003.value, 12);\n} else if (\n    constraintsData.C002 &&\n    gpa >= toNumber(constraintsData.C002.gpa_min, 2.0) &&\n    gpa <= toNumber(constraintsData.C002.gpa_max, 2.15)\n) {\n    maxCredits = toNumber(constraintsData.C002.value, 14);\n} else if (constraintsData.C001) {\n    maxCredits = toNumber(constraintsData.C001.value, 18);\n}\n\nconst studyPlanEntries = [];\nconst studyPlanMap = {};\nconst studyPlanCredits = {};\nconst electivePlanEntries = {};\n\nfor (const sp of studyPlanRows) {\n    const courseCode = norm(sp.course_code);\n    const semesterNumber = parseSemester(sp.semester_number);\n    if (!courseCode || !semesterNumber) continue;\n\n    const credits = toNumber(sp.credits, 3);\n    const entry = { course_code: courseCode, semester_number: semesterNumber, credits };\n    studyPlanEntries.push(entry);\n    studyPlanMap[courseCode] = semesterNumber;\n    studyPlanCredits[courseCode] = credits;\n\n    if (isElectivePlaceholder(courseCode)) {\n        if (!electivePlanEntries[courseCode]) electivePlanEntries[courseCode] = [];\n        electivePlanEntries[courseCode].push(entry);\n    }\n}\n\nstudyPlanEntries.sort((a, b) => a.semester_number - b.semester_number || a.course_code.localeCompare(b.course_code));\n\nconst electiveGroups = {};\nconst courseToElectiveGroups = {};\n\nfor (const eg of electiveGroupRows) {\n    const groupCode = norm(eg.group_code);\n    const courseCode = norm(eg.course_code);\n    if (!groupCode || !courseCode) continue;\n\n    if (!electiveGroups[groupCode]) electiveGroups[groupCode] = [];\n    electiveGroups[groupCode].push({\n        course_code: courseCode,\n        course_name: norm(eg.course_name),\n    });\n\n    if (!courseToElectiveGroups[courseCode]) courseToElectiveGroups[courseCode] = new Set();\n    courseToElectiveGroups[courseCode].add(groupCode);\n}\n\nfunction planSemestersForCourse(courseCode) {\n    if (studyPlanMap[courseCode]) return [studyPlanMap[courseCode]];\n\n    const groups = courseToElectiveGroups[courseCode] ? [...courseToElectiveGroups[courseCode]] : [];\n    const semesters = [];\n    for (const group of groups) {\n        const planEntries = electivePlanEntries[group] || [];\n        for (const entry of planEntries) semesters.push(entry.semester_number);\n    }\n\n    return semesters;\n}\n\nfunction inferSemesterFromHistory() {\n    let highestMatchedSemester = 0;\n\n    for (const gradeRow of grades) {\n        const courseCode = norm(gradeRow.course_code);\n        if (!courseCode) continue;\n\n        const semesters = planSemestersForCourse(courseCode);\n        for (const semester of semesters) {\n            if (semester > highestMatchedSemester) highestMatchedSemester = semester;\n        }\n    }\n\n    if (highestMatchedSemester === 0) return 1;\n    return Math.max(1, Math.min(10, highestMatchedSemester));\n}\n\nconst effectiveSemester = requestedSemester || inferSemesterFromHistory();\n\nconst offeredByCode = {};\nfor (const row of scheduleRows) {\n    const courseCode = norm(row.course_code);\n    const programCode = norm(row.program_code);\n    if (!courseCode || programCode === 'UNIV') continue;\n\n    if (!offeredByCode[courseCode]) {\n        offeredByCode[courseCode] = {\n            course_name: norm(row.course_name),\n            credits: toNumber(row.credits, 3),\n            programs: new Set(),\n        };\n    }\n\n    if (programCode) offeredByCode[courseCode].programs.add(programCode);\n}\n\nconst mandatoryCourses = [];\nconst flexibleCourses = [];\nconst electiveOptions = {};\nconst seenCodes = new Set();\nconst skippedFailedRetakes = [];\nconst studentProgram = norm(studentRow.program_code);\n\nfunction isOfferedForStudentProgram(courseCode) {\n    return !!offeredByCode[courseCode] && offeredByCode[courseCode].programs.has(studentProgram);\n}\n\nfunction courseNameFor(courseCode, fallbackName = '') {\n    return (offeredByCode[courseCode] && offeredByCode[courseCode].course_name) || fallbackName || courseCode;\n}\n\nfunction creditsFor(courseCode, fallbackCredits = 3) {\n    return toNumber(studyPlanCredits[courseCode], toNumber(offeredByCode[courseCode] && offeredByCode[courseCode].credits, fallbackCredits));\n}\n\nfunction addCourse(target, courseCode, reason, studyPlanTerm, options = {}) {\n    if (seenCodes.has(courseCode)) return false;\n\n    const credits = toNumber(options.credits, creditsFor(courseCode, 3));\n    target.push({\n        course_code: courseCode,\n        course_name: courseNameFor(courseCode, options.course_name),\n        credits,\n        reason,\n        is_cross_program: false,\n        study_plan_term: studyPlanTerm || null,\n        ...options.extra,\n    });\n\n    seenCodes.add(courseCode);\n    return true;\n}\n\n// P1: Failed retakes. Policy: mandatory only when offered under the student's own program.\nfor (const failedCourse of failedCourses) {\n    if (seenCodes.has(failedCourse)) continue;\n\n    if (!offeredByCode[failedCourse]) {\n        skippedFailedRetakes.push({ course_code: failedCourse, reason: 'NOT_OFFERED' });\n        continue;\n    }\n\n    if (!isOfferedForStudentProgram(failedCourse)) {\n        skippedFailedRetakes.push({ course_code: failedCourse, reason: 'NOT_OFFERED_IN_STUDENT_PROGRAM' });\n        continue;\n    }\n\n    addCourse(\n        mandatoryCourses,\n        failedCourse,\n        'FAILED_RETAKE',\n        studyPlanMap[failedCourse] || null,\n        { credits: creditsFor(failedCourse, offeredByCode[failedCourse].credits) }\n    );\n}\n\n// P2: Overdue required core courses from earlier semesters.\nfor (const entry of studyPlanEntries) {\n    const code = entry.course_code;\n    if (entry.semester_number >= effectiveSemester) continue;\n    if (isNonCoursePlaceholder(code)) continue;\n    if (seenCodes.has(code) || passedCourseSet.has(code)) continue;\n    if (!isOfferedForStudentProgram(code) || !checkPrereqs(code)) continue;\n\n    addCourse(mandatoryCourses, code, 'OVERDUE_CORE', entry.semester_number, { credits: entry.credits });\n}\n\n// P3: Current-semester required core courses.\nfor (const entry of studyPlanEntries) {\n    const code = entry.course_code;\n    if (entry.semester_number !== effectiveSemester) continue;\n    if (isNonCoursePlaceholder(code)) continue;\n    if (seenCodes.has(code) || passedCourseSet.has(code)) continue;\n    if (!isOfferedForStudentProgram(code) || !checkPrereqs(code)) continue;\n\n    addCourse(mandatoryCourses, code, 'CURRENT_SEMESTER_CORE', entry.semester_number, { credits: entry.credits });\n}\n\nconst mandatoryCredits = mandatoryCourses.reduce((sum, course) => sum + toNumber(course.credits, 3), 0);\nconst remainingBudget = maxCredits - mandatoryCredits;\n\n// P4: Current-semester elective options. Study-plan entries contain group placeholders like E1/E2.\nfor (const entry of studyPlanEntries) {\n    const groupCode = entry.course_code;\n    if (entry.semester_number !== effectiveSemester) continue;\n    if (!isElectivePlaceholder(groupCode)) continue;\n\n    const options = electiveGroups[groupCode] || [];\n    for (const option of options) {\n        const code = option.course_code;\n        if (seenCodes.has(code) || passedCourseSet.has(code)) continue;\n        if (!isOfferedForStudentProgram(code) || !checkPrereqs(code)) continue;\n\n        if (!electiveOptions[groupCode]) electiveOptions[groupCode] = [];\n        electiveOptions[groupCode].push({\n            course_code: code,\n            course_name: courseNameFor(code, option.course_name),\n            credits: entry.credits,\n            elective_group: groupCode,\n            reason: 'ELECTIVE_OPTION',\n            study_plan_term: entry.semester_number,\n        });\n    }\n}\n\n// P5: Future required core courses.\nfor (const entry of studyPlanEntries) {\n    const code = entry.course_code;\n    if (entry.semester_number <= effectiveSemester) continue;\n    if (isNonCoursePlaceholder(code)) continue;\n    if (seenCodes.has(code) || passedCourseSet.has(code)) continue;\n    if (!isOfferedForStudentProgram(code) || !checkPrereqs(code)) continue;\n\n    addCourse(flexibleCourses, code, 'FUTURE_CORE', entry.semester_number, { credits: entry.credits });\n}\n\nfor (const options of Object.values(electiveOptions)) {\n    for (const option of options) flexibleCourses.push(option);\n}\n\n// P6: Fallback only when no deterministic pool was found.\nif (mandatoryCourses.length === 0 && flexibleCourses.length === 0) {\n    for (const [code, info] of Object.entries(offeredByCode)) {\n        if (seenCodes.has(code) || passedCourseSet.has(code)) continue;\n        if (!info.programs.has(studentProgram)) continue;\n        if (!checkPrereqs(code)) continue;\n\n        addCourse(flexibleCourses, code, 'FALLBACK_REMAINING', studyPlanMap[code] || null, {\n            credits: creditsFor(code, info.credits),\n        });\n    }\n}\n\nreturn [{\n    json: {\n        student_id: studentRow.student_id,\n        student_name: studentRow.name,\n        academic_program: studentProgram,\n        cumulative_gpa: gpa,\n        career_goal: careerGoal,\n        current_semester: effectiveSemester,\n        semester_source: requestedSemester ? 'user_input' : 'inferred',\n        mandatory_courses: mandatoryCourses,\n        flexible_courses: flexibleCourses,\n        elective_options: electiveOptions,\n        failed_courses: failedCourses,\n        max_allowed_credits: maxCredits,\n        mandatory_credits: mandatoryCredits,\n        remaining_credit_budget: remainingBudget,\n        passed_courses_count: passedCourses.length,\n        total_credits_passed: toNumber(studentRow.total_credits_passed, 0),\n        legal_courses: [...mandatoryCourses, ...flexibleCourses],\n        university_req_courses: [],\n        cross_program_courses: [],\n        _debug: {\n            studyPlanEntries: studyPlanEntries.length,\n            electiveGroupEntries: Object.keys(electiveGroups).length,\n            offeredCourseEntries: Object.keys(offeredByCode).length,\n            skipped_failed_retakes: skippedFailedRetakes,\n        },\n    },\n}];"
+      },
+      "id": "af6560aa-2713-41b0-b96a-8f8d63481e1c",
+      "name": "Hard Logic Pre-Filter",
+      "position": [
+        1008,
+        592
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "condition-1777086166986-8uw49a2mu",
+              "leftValue": "={{ $json.error }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "id": "656c8012-1cb9-44e6-aeac-4a0e02900430",
+      "name": "Check Student Found",
+      "position": [
+        1280,
+        592
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an academic workload advisor at Alamein University.\n\nStudent: {{ $json.student_name }} ({{ $json.academic_program }}, GPA {{ $json.cumulative_gpa }})\nSemester: {{ $json.current_semester }}\n\n🔒 MANDATORY COURSES (already locked — DO NOT remove or change these):\n{{ JSON.stringify($json.mandatory_courses, null, 2) }}\nMandatory credits used: {{ $json.mandatory_credits }}\n\n📋 FLEXIBLE COURSE POOL (pick from these ONLY):\n{{ JSON.stringify($json.flexible_courses, null, 2) }}\n\nRemaining credit budget: {{ $json.remaining_credit_budget }}\nMax total credits: {{ $json.max_allowed_credits }}\n\n{% if Object.keys($json.elective_options).length > 0 %}\n⚡ ELECTIVE GROUPS (pick at most ONE course per group):\n{{ JSON.stringify($json.elective_options, null, 2) }}\n{% endif %}\n\nRules:\n1. Select courses ONLY from the flexible pool above\n2. Do NOT exceed the remaining credit budget ({{ $json.remaining_credit_budget }})\n3. For elective groups, pick at most ONE course per group\n4. Prioritize balanced workload across days\n5. If the flexible pool is empty, return an empty array\n\nOutput ONLY a valid JSON array of course codes from the flexible pool.\nExample: [\"CSE322\", \"AIE314\"]",
+        "hasOutputParser": true
+      },
+      "id": "e3d9bbc5-0b0d-4574-917d-bc0636712cb1",
+      "name": "Agent A Workload Analyst",
+      "position": [
+        1536,
+        464
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "model": "llama-3.1-8b-instant",
+        "options": {}
+      },
+      "id": "c5e190f7-88ba-473e-9f82-105d065c99c8",
+      "name": "Groq Chat Model (Agent A)",
+      "position": [
+        1536,
+        672
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "credentials": {
+        "groqApi": {
+          "id": "u3HaM0Tj65Nai5fI",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"recommended_courses_a\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"required\":[\"recommended_courses_a\"],\"additionalProperties\":false}"
+      },
+      "id": "50506bfa-eca6-48b8-bd2f-a0994c7dacc4",
+      "name": "Structured Output Parser A",
+      "position": [
+        1696,
+        672
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a career advisor at Alamein University.\n\nStudent: {{ $json.student_name }} ({{ $json.academic_program }}, GPA {{ $json.cumulative_gpa }})\nCareer goal: {{ $json.career_goal }}\nSemester: {{ $json.current_semester }}\n\n🔒 MANDATORY COURSES (already locked — DO NOT remove or change these):\n{{ JSON.stringify($json.mandatory_courses, null, 2) }}\nMandatory credits used: {{ $json.mandatory_credits }}\n\n📋 FLEXIBLE COURSE POOL (pick from these ONLY):\n{{ JSON.stringify($json.flexible_courses, null, 2) }}\n\nRemaining credit budget: {{ $json.remaining_credit_budget }}\nMax total credits: {{ $json.max_allowed_credits }}\n\n{% if Object.keys($json.elective_options).length > 0 %}\n⚡ ELECTIVE GROUPS (pick at most ONE course per group):\n{{ JSON.stringify($json.elective_options, null, 2) }}\n{% endif %}\n\nRules:\n1. Select courses ONLY from the flexible pool above\n2. Do NOT exceed the remaining credit budget ({{ $json.remaining_credit_budget }})\n3. For elective groups, pick at most ONE course per group\n4. Prioritize courses aligned with the career goal: {{ $json.career_goal }}\n5. If the flexible pool is empty, return an empty array\n\nOutput ONLY a valid JSON array of course codes from the flexible pool.\nExample: [\"AIE323\", \"AIE241\"]",
+        "hasOutputParser": true
+      },
+      "id": "9db6aa8d-3897-4e1a-85eb-9444754c56a1",
+      "name": "Agent B Career Matcher",
+      "position": [
+        1536,
+        832
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"recommended_courses_b\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"required\":[\"recommended_courses_b\"],\"additionalProperties\":false}"
+      },
+      "id": "13392587-e488-495a-a6b1-0757b793614b",
+      "name": "Structured Output Parser B",
+      "position": [
+        1696,
+        992
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {},
+      "id": "9a19117b-6db4-44c8-893f-057e0c1df5f8",
+      "name": "Merge A+B",
+      "position": [
+        1872,
+        656
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are the Final Fusion Advisor at Alamein University.\n\nStudent: {{ $('Hard Logic Pre-Filter').first().json.student_name }} ({{ $('Hard Logic Pre-Filter').first().json.academic_program }})\nGPA: {{ $('Hard Logic Pre-Filter').first().json.cumulative_gpa }}\nCareer goal: {{ $('Hard Logic Pre-Filter').first().json.career_goal }}\nSemester: {{ $('Hard Logic Pre-Filter').first().json.current_semester }}\nMax credits: {{ $('Hard Logic Pre-Filter').first().json.max_allowed_credits }}\n\n🔒 MANDATORY COURSES (MUST include ALL of these — non-negotiable):\n{{ JSON.stringify($('Hard Logic Pre-Filter').first().json.mandatory_courses, null, 2) }}\n\nWorkload Agent proposes these FLEXIBLE additions: {{ JSON.stringify($input.all()[0].json.output.recommended_courses_a) }}\nCareer Agent proposes these FLEXIBLE additions: {{ JSON.stringify($input.all()[1].json.output.recommended_courses_b) }}\n\nRules:\n1. ALWAYS include ALL mandatory courses first\n2. Then merge the best flexible selections from both agents\n3. Do NOT exceed max credits: {{ $('Hard Logic Pre-Filter').first().json.max_allowed_credits }}\n4. If GPA < 2.5, prefer Workload Agent selections (lighter load)\n5. If GPA >= 2.5 and career goal exists, prefer Career Agent selections\n6. For each course, use the EXACT course_code and course_name from the data\n7. If both agents returned empty arrays, output only mandatory courses\n\nOutput STRICTLY this JSON:\n{\n  \"recommended_schedule\": {\n    \"total_credits\": <number>,\n    \"courses\": [\n      { \"course_code\": \"<code>\", \"course_name\": \"<name>\", \"credits\": <number>, \"ai_reasoning\": \"<1 sentence>\" }\n    ]\n  }\n}",
+        "hasOutputParser": true
+      },
+      "id": "55c9c810-202d-4ae5-b932-b6c7331c4ad0",
+      "name": "Fusion Judge",
+      "position": [
+        2144,
+        416
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+        "options": {}
+      },
+      "id": "f4865156-39c0-43e8-84ee-823529414895",
+      "name": "Groq Chat Model (Judge)",
+      "position": [
+        2128,
+        848
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "credentials": {
+        "groqApi": {
+          "id": "u3HaM0Tj65Nai5fI",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"recommended_schedule\":{\"type\":\"object\",\"properties\":{\"total_credits\":{\"type\":\"number\"},\"courses\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"course_code\":{\"type\":\"string\"},\"course_name\":{\"type\":\"string\"},\"credits\":{\"type\":\"number\"},\"ai_reasoning\":{\"type\":\"string\"}},\"required\":[\"course_code\",\"course_name\",\"credits\",\"ai_reasoning\"]}}},\"required\":[\"total_credits\",\"courses\"]}},\"required\":[\"recommended_schedule\"]}"
+      },
+      "id": "755ec80a-7e54-4810-afe0-16abb37b0afb",
+      "name": "Structured Output Parser Judge",
+      "position": [
+        2288,
+        848
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "jsCode": "const llmOutput = $('Fusion Judge').first().json.output;\nconst offeredCourses = $('Get Offered Courses').all().map(i => i.json);\nconst realNames = {};\nfor (const row of offeredCourses) { if (row.course_code && row.course_name) realNames[row.course_code] = row.course_name; }\nif (llmOutput && llmOutput.recommended_schedule && llmOutput.recommended_schedule.courses) {\n    for (const course of llmOutput.recommended_schedule.courses) { if (realNames[course.course_code]) course.course_name = realNames[course.course_code]; }\n}\nreturn [{ json: { output: llmOutput } }];"
+      },
+      "id": "ed6ff4fe-9d13-4dd5-abc1-1a36fc16ec89",
+      "name": "Fix Course Names",
+      "position": [
+        2288,
+        656
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Schedule Mapper + Conflict Detection (v2 — Smart Section Selection)\n// Maps recommended course codes to their Day/Period/Room from generated_schedule\n// Picks the BEST section per component (avoids conflicts when possible)\n// Detects time conflicts in the student's personal timetable\n\nconst schedule = $('Fix Course Names').first().json.output.recommended_schedule;\nconst allScheduleRows = $('Get Offered Courses').all().map(i => i.json);\nconst preFilter = $('Hard Logic Pre-Filter').first().json;\nconst studentProgram = preFilter.academic_program;\n\nif (!schedule || !schedule.courses) {\n    return [{ json: { error: true, error_message: 'AI returned invalid schedule structure' } }];\n}\n\nconst mappedCourses = [];\nconst conflicts = [];\nconst occupiedSlots = {};\n\nfor (const course of schedule.courses) {\n    let slots = allScheduleRows.filter(s => s.course_code === course.course_code);\n    \n    if (slots.length === 0) {\n        mappedCourses.push({\n            ...course,\n            slots: [],\n            mapping_status: 'NOT_SCHEDULED'\n        });\n        continue;\n    }\n\n    // Group all available slots by component (LEC, TUT, LAB)\n    const componentGroups = {};\n    for (const slot of slots) {\n        if (!componentGroups[slot.component]) componentGroups[slot.component] = [];\n        componentGroups[slot.component].push(slot);\n    }\n\n    // Smart Section Selection: pick the section that avoids conflicts\n    const selectedSlots = [];\n    for (const [component, componentSlots] of Object.entries(componentGroups)) {\n        // Prefer own-program sections, fall back to any program\n        const ownProgSlots = componentSlots.filter(s => s.program_code === studentProgram);\n        const candidates = ownProgSlots.length > 0 ? ownProgSlots : componentSlots;\n        \n        // Try to find a section that doesn't conflict with occupied slots\n        let picked = null;\n        for (const slot of candidates) {\n            const slotKey = `${slot.day}-${slot.period}`;\n            if (!occupiedSlots[slotKey]) {\n                picked = slot;\n                break;\n            }\n        }\n        // Fallback: all sections conflict, pick first (conflict will be reported)\n        if (!picked) picked = candidates[0];\n        selectedSlots.push(picked);\n    }\n\n    const courseSlots = [];\n    for (const slot of selectedSlots) {\n        const slotKey = `${slot.day}-${slot.period}`;\n        \n        if (occupiedSlots[slotKey]) {\n            conflicts.push({\n                course_a: occupiedSlots[slotKey],\n                course_b: course.course_code,\n                day: slot.day,\n                period: slot.period,\n                conflict_type: 'TIME_OVERLAP'\n            });\n        } else {\n            occupiedSlots[slotKey] = course.course_code;\n        }\n\n        courseSlots.push({\n            component: slot.component,\n            day: slot.day,\n            period: slot.period,\n            room: slot.room_id,\n            section: slot.section\n        });\n    }\n\n    mappedCourses.push({\n        ...course,\n        slots: courseSlots,\n        mapping_status: 'MAPPED'\n    });\n}\n\nconst fullResponse = {\n    student_id: preFilter.student_id,\n    student_name: preFilter.student_name,\n    academic_program: preFilter.academic_program,\n    cumulative_gpa: preFilter.cumulative_gpa,\n    career_goal: preFilter.career_goal,\n    recommended_schedule: {\n        total_credits: schedule.total_credits,\n        courses: mappedCourses\n    },\n    conflicts: conflicts,\n    has_conflicts: conflicts.length > 0\n};\n\nreturn [{ json: fullResponse }];"
+      },
+      "id": "6cdca147-5fd1-49b4-8179-d5ca7b95f701",
+      "name": "Schedule Mapper",
+      "position": [
+        2432,
+        656
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO recommendation_cache (student_id, recommended_courses, conflict_details, full_response, source)\nVALUES (\n  '{{ $('Schedule Mapper').first().json.student_id }}',\n  '{{ JSON.stringify($('Schedule Mapper').first().json.recommended_schedule).replace(/'/g, \"''\") }}'::jsonb,\n  '{{ JSON.stringify($('Schedule Mapper').first().json.conflicts).replace(/'/g, \"''\") }}'::jsonb,\n  '{{ JSON.stringify($('Schedule Mapper').first().json).replace(/'/g, \"''\") }}'::jsonb,\n  '{{ $('Omnichannel Extractor').first().json.source }}'\n)\nON CONFLICT (student_id) DO UPDATE SET\n  recommended_courses = EXCLUDED.recommended_courses,\n  conflict_details = EXCLUDED.conflict_details,\n  full_response = EXCLUDED.full_response,\n  created_at = NOW(),\n  source = EXCLUDED.source;",
+        "options": {}
+      },
+      "id": "f4e43a7c-928f-4b91-b7ab-ef033c0d0b7c",
+      "name": "Write Cache",
+      "position": [
+        2656,
+        656
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const schedule = $('Schedule Mapper').first().json;\nreturn [{ json: schedule }];"
+      },
+      "id": "5640030b-25f0-45a7-b4c4-6e024e72646d",
+      "name": "Pass Schedule Data",
+      "position": [
+        2800,
+        656
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "condition-1777086166986-3vrpguytm",
+              "leftValue": "={{ $('Omnichannel Extractor').first().json.source }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "web"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "id": "cb28686a-fc09-499c-81e6-e2b045a0c8c0",
+      "name": "Output Router",
+      "position": [
+        2976,
+        688
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "d79bdb98-8136-42e3-947a-2b7ae5561567",
+      "name": "Respond to Webhook",
+      "position": [
+        3168,
+        592
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nif (data.error) { return [{ json: { telegram_message_text: `❌ ${data.error_message}` } }]; }\nconst schedule = data.recommended_schedule;\nif (!schedule || !schedule.courses) { return [{ json: { telegram_message_text: '⚠️ The AI returned an invalid response. Please try again.' } }]; }\nconst crossProgramCodes = new Set();\ntry { const pf = $('Hard Logic Pre-Filter').first().json; if (pf.cross_program_courses) pf.cross_program_courses.forEach(c => crossProgramCodes.add(c.course_code)); } catch(e) {}\nlet md = `🎓 **Your Custom AI Schedule**\\n`;\nmd += `👤 *${data.student_name}*\\n`;\nmd += `📊 GPA: ${data.cumulative_gpa} | Courses: ${schedule.courses.length}\\n\\n`;\nschedule.courses.forEach((c, i) => {\n    const isCross = crossProgramCodes.has(c.course_code);\n    const isUR = c.is_university_req;\n    md += `${i+1}. ${isUR ? '🌐' : isCross ? '🔄' : '📚'} **${c.course_code}** — ${c.course_name || 'N/A'}\\n`;\n    if (isUR) md += `   📅 *Online — Thursday (schedule TBD)*\\n`;\n    if (isCross) md += `   ⚠️ *Cross-program course*\\n`;\n    md += `   💳 Credits: ${c.credits || 'N/A'}\\n`;\n    md += `   🧠 *Why:* ${c.ai_reasoning}\\n\\n`;\n});\nif (data.has_conflicts) { md += `\\n⚠️ **Time Conflicts Detected:**\\n`; data.conflicts.forEach(c => { md += `   ❌ ${c.course_a} vs ${c.course_b} on ${c.day} P${c.period}\\n`; }); }\nmd += `\\n✅ *Schedule complies with all university prerequisites and credit limits.*`;\nreturn [{ json: { telegram_message_text: md } }];"
+      },
+      "id": "f1812d5d-190f-40ea-a2e1-0b9a397f7543",
+      "name": "Markdown Formatter",
+      "position": [
+        3168,
+        832
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.telegram_message_text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "b0b8f479-3ec7-44d1-ba58-5b70e91ce397",
+      "name": "Telegram Send Schedule",
+      "position": [
+        3440,
+        832
+      ],
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "webhookId": "1aff6c34-abc6-41d1-a81f-c6903363682e",
+      "credentials": {
+        "telegramApi": {
+          "id": "3l13YK5R0D1n673L",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## 🧠 Workflow C: Student Recommendation Engine\n\n**POST /student/chat** + Telegram Trigger\n\nRoutes:\n- `/recommend <StudentID> <CareerGoal>` → MoA pipeline\n- Policy Q&A → RAG Agent (pgvector)\n- `/request-slot` → Slot Handler\n\nRAG: PostgreSQL pgvector (policy_chunks table)"
+      },
+      "id": "f0868655-54cc-4f57-b190-9ea7e6d3620c",
+      "name": "Sticky Note",
+      "position": [
+        -896,
+        368
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "const extractor = $('Omnichannel Extractor').first().json;\nconst webhookBody = $('Student Web Webhook').first().json.body || {};\nconst studentId = extractor.student_id;\nconst courseCode = webhookBody.course_code;\nconst source = extractor.source;\nif (!studentId || !courseCode) { return [{ json: { error: true, error_message: 'Missing required fields: student_id, course_code' } }]; }\nreturn [{ json: { student_id: studentId, course_code: courseCode, message: `Slot request received for ${courseCode}. The advisor will be notified.`, source: source || 'web' } }];"
+      },
+      "id": "1105eb11-9203-4cb0-9aa5-bbc30bd01e76",
+      "name": "Slot Request Handler",
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Omnichannel Extractor').first().json.message }}",
+        "options": {
+          "systemMessage": "You are the official Academic Policy Assistant for Alamein University, Faculty of Computer Science & Engineering.\n\nYou MUST use the knowledge base retrieval tool to search policy documents before answering. Do NOT answer from memory.\n\nRules:\n1. ALWAYS call the retrieval tool first to find relevant sections.\n2. Cite the specific Section number from the retrieved content (e.g. 'Section 1.4').\n3. If the tool returns no relevant results, say: 'I could not find a specific policy on this topic. Please contact the Faculty office.'\n4. Keep answers concise and student-friendly.\n5. Respond in the same language the student used."
+        }
+      },
+      "id": "45890377-3813-4781-bde7-6451ecf60129",
+      "name": "AI Agent",
+      "position": [
+        192,
+        1440
+      ],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "id": "7c5d5fee-211a-4579-9056-75608d399259",
+      "name": "Groq Chat Model",
+      "position": [
+        0,
+        1664
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "credentials": {
+        "groqApi": {
+          "id": "u3HaM0Tj65Nai5fI",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Omnichannel Extractor').first().json.student_id || 'anonymous' }}",
+        "contextWindowLength": 10
+      },
+      "id": "93f28b2f-eec0-4829-a828-0e65c5221f74",
+      "name": "Simple Memory",
+      "position": [
+        160,
+        1664
+      ],
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "model": "mxbai-embed-large:latest"
+      },
+      "id": "fdcc3963-1cfb-4cd8-9950-50df9249b39f",
+      "name": "RAG Embeddings",
+      "position": [
+        208,
+        2016
+      ],
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "credentials": {
+        "ollamaApi": {
+          "id": "NcHHiskhR1QHrFRC",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Search and retrieve official Alamein University academic policies including: registration rules, credit hour limits by GPA standing, grading scale, prerequisites rules, and cross-program registration. ALWAYS use this tool before answering student policy questions.",
+        "tableName": "policy_chunks",
+        "options": {}
+      },
+      "id": "857179a4-cfb0-4930-919d-62847b20d899",
+      "name": "Policy Knowledge Base",
+      "position": [
+        208,
+        1840
+      ],
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.3,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Consolidated Pre-Filter\n\nReplaces 6 nodes:\n- Get Student Profile\n- Get Prerequisites\n- Get Constraints\n- Get Offered Courses\n- Merge Data\n- Hard Logic Pre-Filter\n\nConnect: Cache Gate (FALSE) → Consolidated Pre-Filter Query → Result Handler → Check Student Found"
+      },
+      "id": "fd35dbcf-9c25-4696-b8c2-eb526a328f87",
+      "name": "Sticky Note - Consolidated",
+      "position": [
+        816,
+        3088
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH student_data AS ( SELECT s.student_id, s.name AS student_name, s.program_code, s.cumulative_gpa::numeric, COALESCE(s.total_credits_passed::numeric, 0) AS total_credits_passed, COALESCE( array_agg(sg.course_code) FILTER ( WHERE sg.grade IS NOT NULL AND sg.grade NOT IN ('F','FW','W','U') ), ARRAY[]::text[] ) AS passed_courses, COALESCE( array_agg(sg.course_code) FILTER ( WHERE sg.grade IN ('F','FW') ), ARRAY[]::text[] ) AS failed_courses FROM students s LEFT JOIN student_grades sg ON s.student_id = sg.student_id WHERE s.student_id = '{{ $(\"Omnichannel Extractor\").first().json.student_id }}' GROUP BY s.student_id, s.name, s.program_code, s.cumulative_gpa, s.total_credits_passed ), prereq_grouped AS ( SELECT course_code, array_agg(prerequisite_code) AS prerequisites, MAX(CASE WHEN condition != 'NONE' THEN condition ELSE 'NONE' END) AS condition FROM prerequisites GROUP BY course_code ), credit_limit AS ( SELECT CASE WHEN sd.cumulative_gpa < (SELECT gpa_max::numeric + 0.01 FROM constraints WHERE constraint_id = 'C003') THEN (SELECT value::int FROM constraints WHERE constraint_id = 'C003') WHEN sd.cumulative_gpa >= (SELECT gpa_min::numeric FROM constraints WHERE constraint_id = 'C002') AND sd.cumulative_gpa <= (SELECT gpa_max::numeric FROM constraints WHERE constraint_id = 'C002') THEN (SELECT value::int FROM constraints WHERE constraint_id = 'C002') ELSE COALESCE((SELECT value::int FROM constraints WHERE constraint_id = 'C001'), 18) END AS max_credits FROM student_data sd ), offered_distinct AS ( SELECT DISTINCT ON (gs.course_code, gs.program_code) gs.course_code, gs.course_name, gs.program_code, COALESCE(sp.credits, 3) AS credits FROM generated_schedule gs LEFT JOIN study_plan_entries sp ON gs.course_code = sp.course_code AND gs.program_code = sp.program_code ), eligible AS ( SELECT o.course_code, o.course_name, o.credits, o.program_code, CASE WHEN o.program_code = sd.program_code THEN 'program' WHEN o.program_code = 'UNIV' THEN 'univ' ELSE 'cross' END AS course_type FROM offered_distinct o CROSS JOIN student_data sd LEFT JOIN prereq_grouped p ON o.course_code = p.course_code WHERE o.course_code != ALL(sd.passed_courses) AND ( p.course_code IS NULL OR p.condition = 'NONE' OR (array_length(p.prerequisites, 1) = 1 AND p.prerequisites[1] = 'None') OR (p.condition = 'MANDATORY' AND p.prerequisites[1] = ANY(sd.passed_courses)) OR (p.condition = 'AND' AND p.prerequisites <@ sd.passed_courses) OR (p.condition = 'OR' AND p.prerequisites && sd.passed_courses) ) AND ( o.program_code = sd.program_code OR o.program_code = 'UNIV' OR (o.program_code != sd.program_code AND o.program_code != 'UNIV' AND o.course_code = ANY(sd.failed_courses)) ) ) SELECT json_build_object( 'student_id', sd.student_id, 'student_name', sd.student_name, 'academic_program', sd.program_code, 'cumulative_gpa', sd.cumulative_gpa, 'career_goal', '{{ $(\"Omnichannel Extractor\").first().json.career_goal }}', 'max_allowed_credits', cl.max_credits, 'passed_courses_count', COALESCE(array_length(sd.passed_courses, 1), 0), 'total_credits_passed', sd.total_credits_passed, 'failed_courses', COALESCE(to_json(sd.failed_courses), '[]'::json), 'legal_courses', COALESCE(( SELECT json_agg(json_build_object( 'course_code', e.course_code, 'course_name', e.course_name, 'credits', CASE WHEN e.course_type = 'univ' THEN LEAST(e.credits, 2) ELSE e.credits END, 'is_cross_program', (e.course_type = 'cross'), 'is_university_req', (e.course_type = 'univ'), 'offered_in_program', CASE WHEN e.course_type = 'cross' THEN e.program_code ELSE NULL END )) FROM eligible e ), '[]'::json), 'university_req_courses', COALESCE(( SELECT json_agg(json_build_object( 'course_code', e.course_code, 'course_name', e.course_name, 'credits', LEAST(e.credits, 2), 'is_cross_program', false, 'is_university_req', true )) FROM eligible e WHERE e.course_type = 'univ' ), '[]'::json), 'cross_program_courses', COALESCE(( SELECT json_agg(json_build_object( 'course_code', e.course_code, 'course_name', e.course_name, 'credits', e.credits, 'is_cross_program', true, 'offered_in_program', e.program_code )) FROM eligible e WHERE e.course_type = 'cross' ), '[]'::json) ) AS result FROM student_data sd CROSS JOIN credit_limit cl;",
+        "options": {}
+      },
+      "alwaysOutputData": true,
+      "id": "6df91ed7-54e4-4d87-ab01-175776117a88",
+      "name": "Consolidated Pre-Filter Query",
+      "position": [
+        960,
+        3280
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst studentId = $('Omnichannel Extractor').first().json.student_id;\n\nif (!items || items.length === 0 || !items[0].json || !items[0].json.result) {\n    return [{ json: { error: true, error_message: `Student ID \"${studentId}\" not found.` } }];\n}\n\nlet result = items[0].json.result;\nif (typeof result === 'string') {\n    try { result = JSON.parse(result); } catch(e) {}\n}\n\nreturn [{ json: result }];"
+      },
+      "id": "70d6e548-8cff-4867-8016-fefadc1d3b9c",
+      "name": "Result Handler",
+      "position": [
+        1232,
+        3280
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT spe.semester_number, spe.course_code, spe.credits FROM study_plan_entries spe JOIN students s ON s.program_code = spe.program_code WHERE s.student_id = '{{ $(\"Omnichannel Extractor\").first().json.student_id }}'",
+        "options": {}
+      },
+      "id": "fd74fe37-6249-409a-a12a-f2e4b8ae1b6b",
+      "name": "Get Study Plan",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        496,
+        960
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT eg.group_code, eg.course_code, eg.course_name FROM elective_groups eg JOIN students s ON s.program_code = eg.program_code WHERE s.student_id = '{{ $(\"Omnichannel Extractor\").first().json.student_id }}'",
+        "options": {}
+      },
+      "id": "85d62b55-0985-4cd2-90e7-c0a3c4ffefab",
+      "name": "Get Elective Groups",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        496,
+        1104
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "CREATE TABLE IF NOT EXISTS slot_requests (\n  id SERIAL PRIMARY KEY,\n  student_id VARCHAR(20) NOT NULL,\n  course_code VARCHAR(20) NOT NULL,\n  status VARCHAR(20) DEFAULT 'pending',\n  created_at TIMESTAMP DEFAULT NOW(),\n  resolved_at TIMESTAMP,\n  advisor_note TEXT\n);\n\nINSERT INTO slot_requests (student_id, course_code, status)\nVALUES ('{{ $json.student_id }}', '{{ $json.course_code }}', 'pending');",
+        "options": {}
+      },
+      "id": "f9031459-0a8f-45d3-a937-bbb0fea5f0df",
+      "name": "Save Slot Request",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        224,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "deepseek-v4-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        1024
+      ],
+      "id": "24515554-624a-444a-8406-78b64de8ce86",
+      "name": "DeepSeek Chat Model",
+      "credentials": {
+        "deepSeekApi": {
+          "id": "83gLFmMwL0pEUBwn",
+          "name": "DeepSeek account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Output Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent A Workload Analyst": {
+      "main": [
+        [
+          {
+            "node": "Merge A+B",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent B Career Matcher": {
+      "main": [
+        [
+          {
+            "node": "Merge A+B",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Cache Check": {
+      "main": [
+        [
+          {
+            "node": "Cache Normalizer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Gate": {
+      "main": [
+        [
+          {
+            "node": "Extract Cached Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Student Profile",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Prerequisites",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Constraints",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Offered Courses",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Study Plan",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Elective Groups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Normalizer": {
+      "main": [
+        [
+          {
+            "node": "Cache Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Student Found": {
+      "main": [
+        [
+          {
+            "node": "Output Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Agent A Workload Analyst",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Agent B Career Matcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Cached Response": {
+      "main": [
+        [
+          {
+            "node": "Output Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fix Course Names": {
+      "main": [
+        [
+          {
+            "node": "Schedule Mapper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fusion Judge": {
+      "main": [
+        [
+          {
+            "node": "Fix Course Names",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Constraints": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Get Offered Courses": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Get Prerequisites": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get Student Profile": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model (Agent A)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent A Workload Analyst",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model (Judge)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Fusion Judge",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hard Logic Pre-Filter": {
+      "main": [
+        [
+          {
+            "node": "Check Student Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown Formatter": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send Schedule",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge A+B": {
+      "main": [
+        [
+          {
+            "node": "Fusion Judge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Data": {
+      "main": [
+        [
+          {
+            "node": "Hard Logic Pre-Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Omnichannel Extractor": {
+      "main": [
+        [
+          {
+            "node": "Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output Router": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Markdown Formatter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pass Schedule Data": {
+      "main": [
+        [
+          {
+            "node": "Output Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Policy Knowledge Base": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG Embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Policy Knowledge Base",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router": {
+      "main": [
+        [
+          {
+            "node": "Cache Check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slot Request Handler",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Mapper": {
+      "main": [
+        [
+          {
+            "node": "Write Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slot Request Handler": {
+      "main": [
+        [
+          {
+            "node": "Output Router",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save Slot Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser A": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Agent A Workload Analyst",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser B": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Agent B Career Matcher",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser Judge": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Fusion Judge",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Student Web Webhook": {
+      "main": [
+        [
+          {
+            "node": "Omnichannel Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Omnichannel Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Cache": {
+      "main": [
+        [
+          {
+            "node": "Pass Schedule Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidated Pre-Filter Query": {
+      "main": [
+        [
+          {
+            "node": "Result Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Study Plan": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Get Elective Groups": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Save Slot Request": {
+      "main": [
+        [
+          {
+            "node": "Output Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent B Career Matcher",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "390421ef-3019-4bba-a32e-cf6d3e1d2b7f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "edb31cd461cc0cd52f96c655be384d8bb4dce03eead801b1dae3667302fe7784"
+  },
+  "id": "8Fj6pFN5hB6h9F0K",
+  "tags": []
+}

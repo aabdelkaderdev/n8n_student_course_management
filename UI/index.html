@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>University Advising System — AI-Powered</title>
+  <meta name="description" content="AI-Powered University Advising System for administrators, advisors, and students.">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="header">
+    <div class="header-inner">
+      <a class="logo" href="#">
+        <div class="logo-icon"><i class="fas fa-graduation-cap"></i></div>
+        <div class="logo-text">
+          <h1>University Advising System</h1><span>AI-Powered Platform • Live</span>
+        </div>
+      </a>
+      <div class="role-switcher" id="roleSwitcher">
+        <button class="role-btn active" data-role="superadmin"><i class="fas fa-shield-halved"></i>&nbsp;
+          SuperAdmin</button>
+        <button class="role-btn" data-role="advisor"><i class="fas fa-chalkboard-teacher"></i>&nbsp; Advisor</button>
+        <button class="role-btn" data-role="student"><i class="fas fa-user-graduate"></i>&nbsp; Student</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- API Config Bar -->
+    <div class="config-bar">
+      <label><i class="fas fa-server"></i> n8n API:</label>
+      <input type="text" id="apiBaseUrl" value="https://lip-reserves-could-farming.trycloudflare.com"
+        placeholder="https://your-n8n-url.example.com" aria-label="n8n API base URL — editable">
+      <button class="btn btn-outline" style="padding:6px 14px;font-size:.78rem" onclick="testConnection()"><i
+          class="fas fa-plug"></i> Test</button>
+      <span id="connStatus"></span>
+    </div>
+
+    <!-- ╔══════════════════════════════════════╗ -->
+    <!-- ║       SUPERADMIN DASHBOARD           ║ -->
+    <!-- ╚══════════════════════════════════════╝ -->
+    <section class="dashboard active" id="dash-superadmin">
+      <div class="dash-header">
+        <h2><i class="fas fa-shield-halved" style="color:var(--accent);margin-right:.4rem"></i> SuperAdmin Dashboard
+        </h2>
+        <p>Upload Excel/CSV data files to ingest into the scheduling database.</p>
+      </div>
+
+      <div id="adminAlerts"></div>
+
+      <div class="stats-row" id="adminStats">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#eff6ff;color:#2563eb"><i class="fas fa-users"></i></div>
+          <div class="stat-val" id="statStudents">—</div>
+          <div class="stat-label">Total Students</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#ecfdf5;color:#059669"><i class="fas fa-book-open"></i></div>
+          <div class="stat-val" id="statCourses">—</div>
+          <div class="stat-label">Courses</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#f5f3ff;color:#7c3aed"><i class="fas fa-door-open"></i></div>
+          <div class="stat-val" id="statRooms">—</div>
+          <div class="stat-label">Rooms</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#fffbeb;color:#d97706"><i class="fas fa-calendar-check"></i></div>
+          <div class="stat-val" id="statSchedule">—</div>
+          <div class="stat-label">Schedule Entries</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="fas fa-cloud-arrow-up"></i> Data Ingestion — Upload to n8n</div>
+        <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:1.25rem">
+          Upload the required academic data files. The system auto-detects each file type by column headers.
+        </p>
+
+        <!-- Action Buttons -->
+        <div class="upload-actions" id="uploadActions">
+          <button class="btn btn-accent" id="btnNewSemester" onclick="openUploadModal('semester')">
+            <i class="fas fa-calendar-plus"></i> New Semester Files
+          </button>
+          <button class="btn btn-outline" id="btnNewUniversity" onclick="openUploadModal('university')">
+            <i class="fas fa-university"></i> New University Files
+          </button>
+        </div>
+
+        <!-- 6 File Status Cards -->
+        <div class="file-cards-grid" id="fileCardsGrid">
+          <div class="file-card" id="fc-grades" data-file-type="grades">
+            <div class="file-card-icon" style="background:#eff6ff;color:#2563eb">
+              <i class="fas fa-graduation-cap"></i>
+            </div>
+            <div class="file-card-info">
+              <h4>Grades</h4>
+              <p class="file-card-desc">Student IDs, GPAs, course grades & terms</p>
+              <div class="file-card-status" id="fcs-grades">
+                <span class="badge badge-warning"><i class="fas fa-clock"></i> Not uploaded</span>
+              </div>
+            </div>
+            <div class="file-card-tag">
+              <span class="semester-tag"><i class="fas fa-sync-alt"></i> Every Semester</span>
+            </div>
+          </div>
+
+          <div class="file-card" id="fc-study_plan" data-file-type="study_plan">
+            <div class="file-card-icon" style="background:#ecfdf5;color:#059669">
+              <i class="fas fa-sitemap"></i>
+            </div>
+            <div class="file-card-info">
+              <h4>Study Plan</h4>
+              <p class="file-card-desc">Program curriculum, courses, credits & hours</p>
+              <div class="file-card-status" id="fcs-study_plan">
+                <span class="badge badge-warning"><i class="fas fa-clock"></i> Not uploaded</span>
+              </div>
+            </div>
+            <div class="file-card-tag">
+              <span class="structural-tag"><i class="fas fa-lock"></i> Structural</span>
+            </div>
+          </div>
+
+          <div class="file-card" id="fc-prerequisites" data-file-type="prerequisites">
+            <div class="file-card-icon" style="background:#f5f3ff;color:#7c3aed">
+              <i class="fas fa-project-diagram"></i>
+            </div>
+            <div class="file-card-info">
+              <h4>Prerequisites</h4>
+              <p class="file-card-desc">Course dependency graph (AND/OR conditions)</p>
+              <div class="file-card-status" id="fcs-prerequisites">
+                <span class="badge badge-warning"><i class="fas fa-clock"></i> Not uploaded</span>
+              </div>
+            </div>
+            <div class="file-card-tag">
+              <span class="structural-tag"><i class="fas fa-lock"></i> Structural</span>
+            </div>
+          </div>
+
+          <div class="file-card" id="fc-electives" data-file-type="electives">
+            <div class="file-card-icon" style="background:#fff7ed;color:#ea580c">
+              <i class="fas fa-puzzle-piece"></i>
+            </div>
+            <div class="file-card-info">
+              <h4>Electives</h4>
+              <p class="file-card-desc">Elective group options per program</p>
+              <div class="file-card-status" id="fcs-electives">
+                <span class="badge badge-warning"><i class="fas fa-clock"></i> Not uploaded</span>
+              </div>
+            </div>
+            <div class="file-card-tag">
+              <span class="structural-tag"><i class="fas fa-lock"></i> Structural</span>
+            </div>
+          </div>
+
+          <div class="file-card" id="fc-constraints" data-file-type="constraints">
+            <div class="file-card-icon" style="background:#fef2f2;color:#dc2626">
+              <i class="fas fa-sliders"></i>
+            </div>
+            <div class="file-card-info">
+              <h4>Constraints</h4>
+              <p class="file-card-desc">GPA-based credit limits & academic rules</p>
+              <div class="file-card-status" id="fcs-constraints">
+                <span class="badge badge-warning"><i class="fas fa-clock"></i> Not uploaded</span>
+              </div>
+            </div>
+            <div class="file-card-tag">
+              <span class="structural-tag"><i class="fas fa-lock"></i> Structural</span>
+            </div>
+          </div>
+
+          <div class="file-card" id="fc-rooms" data-file-type="rooms">
+            <div class="file-card-icon" style="background:#f0fdf4;color:#16a34a">
+              <i class="fas fa-door-open"></i>
+            </div>
+            <div class="file-card-info">
+              <h4>Rooms</h4>
+              <p class="file-card-desc">Room IDs, types, capacities & buildings</p>
+              <div class="file-card-status" id="fcs-rooms">
+                <span class="badge badge-warning"><i class="fas fa-clock"></i> Not uploaded</span>
+              </div>
+            </div>
+            <div class="file-card-tag">
+              <span class="structural-tag"><i class="fas fa-lock"></i> Structural</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Modal -->
+      <div class="upload-modal-overlay" id="uploadModal" style="display:none">
+        <div class="upload-modal">
+          <div class="upload-modal-header">
+            <h3 id="uploadModalTitle"><i class="fas fa-cloud-arrow-up"></i> Upload Files</h3>
+            <button class="upload-modal-close" onclick="closeUploadModal()">&times;</button>
+          </div>
+          <div class="upload-modal-body">
+            <p class="upload-modal-hint" id="uploadModalHint"></p>
+            <div class="upload-zone" id="uploadZone">
+              <i class="fas fa-cloud-arrow-up cloud"></i>
+              <h3>Drag & Drop Excel/CSV Files Here</h3>
+              <p>or click to browse — auto-detects file type by columns</p>
+            </div>
+            <div class="upload-files" id="uploadedFiles"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ╔══════════════════════════════════════╗ -->
+    <!-- ║         ADVISOR DASHBOARD            ║ -->
+    <!-- ╚══════════════════════════════════════╝ -->
+    <section class="dashboard" id="dash-advisor">
+      <div class="dash-header">
+        <h2><i class="fas fa-chalkboard-teacher" style="color:var(--accent);margin-right:.4rem"></i> Advisor Dashboard
+        </h2>
+        <p>Generate and approve the university course schedule via the CSP Solver.</p>
+      </div>
+
+      <div id="advisorAlerts"></div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title"><i class="fas fa-wand-magic-sparkles"></i> Generate Draft Schedule</div>
+          <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:1rem">Runs the CSP Greedy Solver to
+            produce a conflict-free timetable. Creates a <strong>draft</strong> that requires approval.</p>
+          <div class="input-group" style="margin-bottom:1rem">
+            <input type="text" id="termInput" value="2252" placeholder="Term code (e.g. 2252)">
+            <button class="btn btn-accent" id="btnGenerate" onclick="generateSchedule()"><i class="fas fa-play"></i>
+              Generate</button>
+          </div>
+          <div id="generateResult"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><i class="fas fa-check-double"></i> Approve & Finalize</div>
+          <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:1rem">Promotes all <strong>draft</strong>
+            entries to <strong>finalized</strong> and clears the recommendation cache so students get fresh results.</p>
+          <button class="btn btn-success" id="btnApprove" onclick="approveSchedule()"><i class="fas fa-stamp"></i>
+            Approve Schedule</button>
+          <div id="approveResult" style="margin-top:1rem"></div>
+        </div>
+      </div>
+
+      <div class="card" id="schedulePreview" style="display:none">
+        <div class="card-title"><i class="fas fa-table-cells"></i> Draft Schedule Preview</div>
+        <div class="table-wrap" id="scheduleTable"></div>
+      </div>
+
+      <!-- Schedule Views -->
+      <div class="card" style="margin-top:1.5rem">
+        <div class="card-title"><i class="fas fa-calendar-days"></i> Schedule Viewer</div>
+        <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:1rem">View the finalized timetable by
+          program (View 1) or as a master room grid (View 2).</p>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1.25rem">
+          <button class="btn btn-accent" onclick="viewSchedule('program')" id="btnView1"><i
+              class="fas fa-layer-group"></i> View 1 — By Program</button>
+          <button class="btn btn-outline" onclick="viewSchedule('master')" id="btnView2"><i class="fas fa-table"></i>
+            View 2 — Master Room Grid</button>
+          <select id="programFilter"
+            style="border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 14px;font-family:inherit;font-size:.85rem;outline:none">
+            <option value="ALL">All Programs</option>
+            <option value="AIE">AIE</option>
+            <option value="AIS">AIS</option>
+            <option value="CS">CS</option>
+            <option value="CE">CE</option>
+          </select>
+        </div>
+        <div id="scheduleViewLoading" style="display:none" class="loading-overlay">
+          <div class="spinner"></div> Loading schedule...
+        </div>
+        <div id="scheduleViewResult"></div>
+      </div>
+
+      <!-- Slot Request Inbox -->
+      <div class="card" style="margin-top:1.5rem">
+        <div class="card-title">
+          <i class="fas fa-bell"></i> Student Slot Requests
+          <span class="badge badge-warning" id="slotRequestCount" style="margin-left:auto">0</span>
+          <button class="btn btn-outline" style="padding:5px 12px;font-size:.75rem;margin-left:.5rem"
+            onclick="loadSlotRequests()">
+            <i class="fas fa-refresh"></i> Refresh
+          </button>
+        </div>
+        <div id="slotRequestsEmpty" style="text-align:center;padding:2rem;color:var(--text-secondary);font-size:.85rem">
+          <i class="fas fa-inbox" style="font-size:2rem;color:var(--text-light);margin-bottom:.75rem;display:block"></i>
+          No slot requests yet. They will appear here when students request new time slots.
+        </div>
+        <div class="table-wrap" id="slotRequestsTable" style="display:none">
+          <table>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Course</th>
+                <th>Status</th>
+                <th>Requested</th>
+              </tr>
+            </thead>
+            <tbody id="slotRequestsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ╔══════════════════════════════════════╗ -->
+    <!-- ║        STUDENT DASHBOARD             ║ -->
+    <!-- ╚══════════════════════════════════════╝ -->
+    <section class="dashboard" id="dash-student">
+      <div class="dash-header">
+        <h2><i class="fas fa-user-graduate" style="color:var(--accent);margin-right:.4rem"></i> Student Dashboard</h2>
+        <p>Get your AI-recommended courses, view your timetable, and ask policy questions.</p>
+      </div>
+
+      <!-- AI Recommendation -->
+      <div class="card">
+        <div class="card-title"><i class="fas fa-lightbulb"></i> AI Course Recommendations</div>
+        <div style="display:flex;align-items:end;gap:1rem;flex-wrap:wrap">
+          <div>
+            <label
+              style="font-size:.82rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:.35rem">Student
+              ID</label>
+            <div class="input-group">
+              <input type="text" id="studentIdInput" placeholder="e.g. 20100252">
+              <input type="number" id="semesterInput" min="1" max="10" placeholder="Semester (1-10)"
+                style="width:140px">
+              <input type="text" id="careerGoalInput" placeholder="Career goal (e.g. data science)">
+              <button class="btn btn-primary" id="btnRecommend" onclick="getRecommendation()"><i
+                  class="fas fa-brain"></i> Recommend</button>
+            </div>
+          </div>
+        </div>
+        <div id="studentInfo" style="margin-top:.75rem;font-size:.82rem;color:var(--text-secondary)"></div>
+        <div id="recLoading" style="display:none" class="loading-overlay">
+          <div class="spinner"></div> Running AI Agents (Workload + Career + Fusion Judge)...
+        </div>
+        <div class="rec-cards" id="recResults" style="display:none"></div>
+        <div id="conflictAlerts"></div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Timetable -->
+        <div class="card">
+          <div class="card-title"><i class="fas fa-calendar-week"></i> My Weekly Timetable</div>
+          <div id="timetableWrap">
+            <p style="font-size:.85rem;color:var(--text-secondary);text-align:center;padding:2rem">Enter your Student ID
+              above and click <strong>Recommend</strong> to generate your timetable.</p>
+          </div>
+        </div>
+
+        <!-- Policy Q&A Chatbox -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="chatbox">
+            <div class="chatbox-header">
+              <div class="dot"></div>
+              <h4>University Policy AI Assistant (RAG)</h4>
+            </div>
+            <div class="chatbox-messages" id="chatMessages">
+              <div class="msg bot">
+                <div class="msg-avatar"><i class="fas fa-robot"></i></div>
+                <div>
+                  <div class="msg-bubble">Hello! 👋 I'm your University Policy Assistant powered by RAG. Ask me anything
+                    about registration rules, academic policies, or deadlines!</div>
+                </div>
+              </div>
+            </div>
+            <div class="chatbox-input">
+              <input type="text" placeholder="Ask about university policies..." id="chatInput">
+              <button onclick="sendChat()" id="btnChat"><i class="fas fa-paper-plane"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- JS Modules (order matters) -->
+  <script src="js/app.js"></script>
+  <script src="js/superadmin.js"></script>
+  <script src="js/advisor.js"></script>
+  <script src="js/student.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,85 @@
+# ===========================
+# AI Tool Configurations
+# ===========================
+.agents/
+.claude/
+.codex/
+.mcp.json
+
+# ===========================
+# Environment & Secrets
+# ===========================
+.env
+*.env
+
+# ===========================
+# Backup / Undo / Temp Files
+# ===========================
+.undo-backup/
+temp/
+*.bak
+*.old
+*_old*
+CLAUDE.md_old
+
+# ===========================
+# Archives
+# ===========================
+*.7z
+*.zip
+*.tar.gz
+*.rar
+
+# ===========================
+# Node.js
+# ===========================
+node_modules/
+package-lock.json
+
+# ===========================
+# Python
+# ===========================
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# ===========================
+# OS Generated Files
+# ===========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===========================
+# IDE / Editor Files
+# ===========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===========================
+# Database Dumps (large)
+# ===========================
+Database backup/
+
+# ===========================
+# Test Reports (generated)
+# ===========================
+tests/
+
+# ===========================
+# Implementation Plans (local)
+# ===========================
+implementation_plan.md
+
+prompts
+recommendation.txt
+serve.js
+PROJECT_DOCUMENTATION.md
+
+workflows/hard_logic_pre_filter_v5.js
+workflows/hardlogicbackupv4.js

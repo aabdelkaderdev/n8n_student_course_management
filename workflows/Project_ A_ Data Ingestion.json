@@ -1,0 +1,255 @@
+{
+  "name": "Project: A: Data Ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin/process-data",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "a-webhook",
+      "name": "SuperAdmin Webhook",
+      "position": [
+        0,
+        304
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "webhookId": "fa4cd385-f848-498d-b840-49b297d8995c",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.headers['content-type'] }}",
+              "operator": {
+                "operation": "contains",
+                "type": "string"
+              },
+              "rightValue": "multipart",
+              "id": "88e320eb-d1c8-4911-9e0f-625508adbfd5"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a-if-filetype",
+      "name": "File Type Check",
+      "position": [
+        272,
+        304
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "binaryPropertyName": "file",
+        "options": {}
+      },
+      "id": "a-spreadsheet",
+      "name": "Parse Excel File",
+      "position": [
+        528,
+        192
+      ],
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Master Transform & Load — detects file type, maps CSV columns to DB schema, builds SQL\nconst items = $input.all();\nconst rows = items.map(i => i.json);\n\nif (rows.length === 0) return [{ json: { error: true, file_type: 'empty', row_count: 0, sql: '', message: 'No data rows received' } }];\n\nconst cols = Object.keys(rows[0]);\nlet fileType = 'unknown';\nlet sql = '';\nconst rowCount = rows.length;\n\n// Helpers — always convert to String first (Spreadsheet node auto-casts numbers)\nconst str = (v) => v == null || v === undefined ? '' : String(v).trim();\nconst esc = (v) => {\n    const s = str(v);\n    if (s === '') return 'NULL';\n    return \"'\" + s.replace(/'/g, \"''\") + \"'\";\n};\nconst num = (v) => {\n    const s = str(v);\n    if (s === '') return 'NULL';\n    const n = parseFloat(s);\n    return isNaN(n) ? 'NULL' : n;\n};\n\n// ============================================================\n// GRADES\n// ============================================================\nif (cols.some(c => /Student ID/i.test(c)) && cols.some(c => /^Grade$/i.test(c)) && cols.some(c => /Unit Taken/i.test(c))) {\n    fileType = 'grades';\n\n    const studentMap = {};\n    for (const row of rows) {\n        const sid = str(row['Student ID']);\n        if (!sid) continue;\n        const gpa = parseFloat(str(row['Cumulative GPA']));\n        if (!studentMap[sid]) {\n            studentMap[sid] = { student_id: sid, name: str(row['Name']), program_code: str(row['Academic Program']), cumulative_gpa: isNaN(gpa) ? 0 : gpa, total_credits_passed: 0 };\n        } else {\n            if (!isNaN(gpa)) studentMap[sid].cumulative_gpa = gpa;\n        }\n    }\n\n    for (const row of rows) {\n        const sid = str(row['Student ID']);\n        if (!sid || !studentMap[sid]) continue;\n        const grade = str(row['Grade']);\n        const units = parseFloat(str(row['Unit Taken'])) || 0;\n        if (!['F', 'FW', 'W', 'U', 'I', 'WF'].includes(grade)) {\n            studentMap[sid].total_credits_passed += units;\n        }\n    }\n\n    const studentVals = Object.values(studentMap).map(s =>\n        '(' + esc(s.student_id) + ', ' + esc(s.name) + ', ' + esc(s.program_code) + ', ' + num(s.cumulative_gpa) + ', ' + num(s.total_credits_passed) + ')'\n    ).join(',\\n');\n\n    sql += 'INSERT INTO students (student_id, name, program_code, cumulative_gpa, total_credits_passed) VALUES\\n' + studentVals + '\\nON CONFLICT (student_id) DO UPDATE SET name = EXCLUDED.name, program_code = EXCLUDED.program_code, cumulative_gpa = EXCLUDED.cumulative_gpa, total_credits_passed = EXCLUDED.total_credits_passed;\\n\\n';\n\n    const gradeVals = rows.filter(r => str(r['Student ID'])).map(r =>\n        '(' + esc(r['Student ID']) + ', ' + esc(r['Course Code']) + ', ' + esc(r['Term']) + ', ' + esc(r['Grade']) + ', ' + num(r['Term GPA']) + ', ' + num(r['Cumulative GPA']) + ', ' + esc(r['Repeat']) + ', ' + num(r['Unit Taken']) + ')'\n    ).join(',\\n');\n\n    sql += 'INSERT INTO student_grades (student_id, course_code, term, grade, term_gpa, cumulative_gpa, repeat_flag, unit_taken) VALUES\\n' + gradeVals + '\\nON CONFLICT (student_id, course_code, term) DO UPDATE SET grade = EXCLUDED.grade, term_gpa = EXCLUDED.term_gpa, cumulative_gpa = EXCLUDED.cumulative_gpa, repeat_flag = EXCLUDED.repeat_flag, unit_taken = EXCLUDED.unit_taken;\\n';\n\n// ============================================================\n// STUDY PLANS\n// ============================================================\n} else if (cols.some(c => /^Program$/i.test(c)) && cols.some(c => /^Semester$/i.test(c)) && cols.some(c => /^Course Code$/i.test(c))) {\n    fileType = 'study_plan';\n\n    const courseMap = {};\n    for (const r of rows) {\n        const cc = str(r['Course Code']);\n        if (cc && !courseMap[cc]) {\n            courseMap[cc] = { course_code: cc, course_name: str(r['Course Name']), credits: r['Credits'], contact_hours: r['Contact Hours'], lec: r['Lec'], tut: r['Tut'], lab: r['Lab'] };\n        }\n    }\n\n    const courseVals = Object.values(courseMap).map(c =>\n        '(' + esc(c.course_code) + ', ' + esc(c.course_name) + ', ' + num(c.credits) + ', ' + num(c.contact_hours) + ', ' + num(c.lec) + ', ' + num(c.tut) + ', ' + num(c.lab) + ')'\n    ).join(',\\n');\n\n    sql += 'INSERT INTO courses (course_code, course_name, credits, contact_hours, lec_hours, tut_hours, lab_hours) VALUES\\n' + courseVals + '\\nON CONFLICT (course_code) DO UPDATE SET course_name = EXCLUDED.course_name, credits = EXCLUDED.credits, contact_hours = EXCLUDED.contact_hours, lec_hours = EXCLUDED.lec_hours, tut_hours = EXCLUDED.tut_hours, lab_hours = EXCLUDED.lab_hours;\\n\\n';\n\n    const planVals = rows.filter(r => str(r['Course Code'])).map(r =>\n        '(' + esc(r['Program']) + ', ' + num(r['Semester']) + ', ' + esc(r['Course Code']) + ', ' + num(r['Credits']) + ')'\n    ).join(',\\n');\n\n    sql += 'INSERT INTO study_plan_entries (program_code, semester_number, course_code, credits) VALUES\\n' + planVals + '\\nON CONFLICT (program_code, semester_number, course_code) DO UPDATE SET credits = EXCLUDED.credits;\\n';\n\n// ============================================================\n// PREREQUISITES\n// ============================================================\n} else if (cols.some(c => /^CourseID$/i.test(c)) && cols.some(c => /^Prerequisite$/i.test(c))) {\n    fileType = 'prerequisites';\n\n    const prereqVals = rows.map(r =>\n        '(' + esc(r['CourseID']) + ', ' + esc(r['Prerequisite']) + ', ' + esc(r['Condition']) + ')'\n    ).join(',\\n');\n\n    sql += 'DELETE FROM prerequisites;\\nINSERT INTO prerequisites (course_code, prerequisite_code, condition) VALUES\\n' + prereqVals + ';\\n';\n\n// ============================================================\n// ELECTIVES\n// ============================================================\n} else if (cols.some(c => /Elective Group/i.test(c))) {\n    fileType = 'electives';\n\n    const electiveVals = rows.map(r =>\n        '(' + esc(r['Program']) + ', ' + esc(r['Elective Group']) + ', ' + esc(r['Course Code']) + ', ' + esc(r['Course Name']) + ')'\n    ).join(',\\n');\n\n    sql += 'DELETE FROM elective_groups;\\nINSERT INTO elective_groups (program_code, group_code, course_code, course_name) VALUES\\n' + electiveVals + ';\\n';\n\n// ============================================================\n// CONSTRAINTS\n// ============================================================\n} else if (cols.some(c => /Constraint_ID/i.test(c))) {\n    fileType = 'constraints';\n\n    const constraintVals = rows.map(r =>\n        '(' + esc(r['Constraint_ID']) + ', ' + esc(r['Rule_Name']) + ', ' + num(r['Target_GPA_Min']) + ', ' + num(r['Target_GPA_Max']) + ', ' + num(r['Value']) + ', ' + esc(r['Description']) + ')'\n    ).join(',\\n');\n\n    sql += 'INSERT INTO constraints (constraint_id, rule_name, gpa_min, gpa_max, value, description) VALUES\\n' + constraintVals + '\\nON CONFLICT (constraint_id) DO UPDATE SET rule_name = EXCLUDED.rule_name, gpa_min = EXCLUDED.gpa_min, gpa_max = EXCLUDED.gpa_max, value = EXCLUDED.value, description = EXCLUDED.description;\\n';\n\n// ============================================================\n// ROOMS\n// ============================================================\n} else if (cols.some(c => /Room_ID/i.test(c))) {\n    fileType = 'rooms';\n\n    const roomVals = rows.map(r =>\n        '(' + esc(r['Room_ID']) + ', ' + esc(r['Room_Type']) + ', ' + num(r['Capacity']) + ', ' + esc(r['Building']) + ')'\n    ).join(',\\n');\n\n    sql += 'INSERT INTO rooms (room_id, room_type, capacity, building) VALUES\\n' + roomVals + '\\nON CONFLICT (room_id) DO UPDATE SET room_type = EXCLUDED.room_type, capacity = EXCLUDED.capacity, building = EXCLUDED.building;\\n';\n}\n\nif (fileType === 'unknown') {\n    return [{ json: { error: true, file_type: 'unknown', row_count: rowCount, sql: '', message: 'Could not detect file type from headers: ' + cols.join(', ') } }];\n}\n\nreturn [{ json: { file_type: fileType, row_count: rowCount, sql: sql, error: false } }];"
+      },
+      "id": "a-transform",
+      "name": "Transform & Load",
+      "position": [
+        528,
+        400
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "TRUNCATE TABLE recommendation_cache;",
+        "options": {}
+      },
+      "id": "a-truncate-cache",
+      "name": "Truncate Cache",
+      "position": [
+        960,
+        400
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'success', file_type: $('Transform & Load').first().json.file_type, rows_processed: $('Transform & Load').first().json.row_count, cache_invalidated: true } }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "a-respond",
+      "name": "Respond Success",
+      "position": [
+        1184,
+        400
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "content": "## 📥 Workflow A: Data Ingestion\n\n**POST /admin/process-data**\n\nSuperAdmin uploads CSV/Excel files.\n- Detects file type by column headers\n- Transforms and upserts to Postgres tables\n- Truncates recommendation_cache (invalidation)\n- Returns JSON success response with stats",
+        "height": 384,
+        "width": 256
+      },
+      "id": "a-sticky",
+      "name": "Sticky Note",
+      "position": [
+        -64,
+        -192
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.sql }}",
+        "options": {}
+      },
+      "id": "a-execute-upsert",
+      "name": "Execute Upsert",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        752,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "File Type Check": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Parse Excel File",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Transform & Load",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Parse Excel File": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Transform & Load",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "SuperAdmin Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "File Type Check",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Truncate Cache": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Respond Success",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Transform & Load": {
+      "main": [
+        [
+          {
+            "node": "Execute Upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Upsert": {
+      "main": [
+        [
+          {
+            "node": "Truncate Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "3a8f0d06-1df1-4c23-aa8f-dd29551cc4f9",
+  "meta": {
+    "instanceId": "edb31cd461cc0cd52f96c655be384d8bb4dce03eead801b1dae3667302fe7784"
+  },
+  "id": "F4OmuyOJmz4XqyTZ",
+  "tags": []
+}

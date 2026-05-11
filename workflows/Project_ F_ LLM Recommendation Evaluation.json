@@ -1,0 +1,912 @@
+{
+  "name": "Project: F: LLM Recommendation Evaluation",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f-manual-trigger",
+      "name": "Manual Trigger",
+      "position": [
+        0,
+        208
+      ],
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "eval-recommendations",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f-webhook-trigger",
+      "name": "Webhook Trigger",
+      "position": [
+        0,
+        512
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "webhookId": "31875885-c95a-434f-a4ab-e8ec3f8be72d",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "let testCases = [];\ntry {\n  const webhookData = $('Webhook Trigger').first().json;\n  if (webhookData && webhookData.body && webhookData.body.test_cases && Array.isArray(webhookData.body.test_cases)) {\n    testCases = webhookData.body.test_cases;\n  }\n} catch (e) {}\n\nif (testCases.length === 0) {\n  testCases = [\n    {test_id:'empty_flexible_pool',category:'edge_case',difficulty:'easy',student_name:'Eval Student 1',academic_program:'CS',cumulative_gpa:3.2,career_goal:'software engineering',current_semester:5,mandatory_courses:[{course_code:'CSE301',course_name:'Operating Systems',credits:3,reason:'CURRENT_SEMESTER_CORE'}],mandatory_credits:3,flexible_courses:[],elective_options:{},remaining_credit_budget:6,max_allowed_credits:9,slots_by_course:{CSE301:[{day:'Sunday',period:1}]},expected:{preferred_agent:'B',must_include_final:['CSE301'],must_not_include:[],career_relevance:{}}},\n    {test_id:'low_gpa_workload_priority',category:'workload',difficulty:'medium',student_name:'Eval Student 2',academic_program:'CS',cumulative_gpa:1.9,career_goal:'data science',current_semester:5,mandatory_courses:[{course_code:'CSE210',course_name:'Data Structures',credits:3,reason:'FAILED_RETAKE'}],mandatory_credits:3,flexible_courses:[{course_code:'CSE322',course_name:'Database Systems',credits:3,reason:'FUTURE_CORE',study_plan_term:6},{course_code:'AIE314',course_name:'Machine Learning',credits:3,reason:'ELECTIVE_OPTION',elective_group:'E1',study_plan_term:5}],elective_options:{E1:[{course_code:'AIE314',course_name:'Machine Learning'},{course_code:'AIE323',course_name:'Computer Vision'}]},remaining_credit_budget:6,max_allowed_credits:9,slots_by_course:{CSE210:[{day:'Sunday',period:1}],CSE322:[{day:'Tuesday',period:2}],AIE314:[{day:'Thursday',period:3}]},expected:{preferred_agent:'A',must_include_final:['CSE210'],must_not_include:[],career_relevance:{AIE314:3,AIE323:3,CSE322:2,CSE210:1}}},\n    {test_id:'high_gpa_career_focus',category:'career',difficulty:'medium',student_name:'Eval Student 3',academic_program:'CS',cumulative_gpa:3.7,career_goal:'artificial intelligence',current_semester:6,mandatory_courses:[],mandatory_credits:0,flexible_courses:[{course_code:'AIE401',course_name:'Deep Learning',credits:3,reason:'FUTURE_CORE',study_plan_term:7},{course_code:'AIE402',course_name:'NLP',credits:3,reason:'FUTURE_CORE',study_plan_term:7},{course_code:'CSE350',course_name:'Computer Networks',credits:3,reason:'FUTURE_CORE',study_plan_term:7}],elective_options:{},remaining_credit_budget:9,max_allowed_credits:18,slots_by_course:{AIE401:[{day:'Sunday',period:1}],AIE402:[{day:'Monday',period:2}],CSE350:[{day:'Wednesday',period:1}]},expected:{preferred_agent:'B',must_include_final:[],must_not_include:[],career_relevance:{AIE401:3,AIE402:3,CSE350:1}}},\n    {test_id:'multiple_electives_same_group',category:'constraint',difficulty:'hard',student_name:'Eval Student 4',academic_program:'CS',cumulative_gpa:2.8,career_goal:'cybersecurity',current_semester:5,mandatory_courses:[],mandatory_credits:0,flexible_courses:[{course_code:'SEC301',course_name:'Network Security',credits:3,reason:'ELECTIVE_OPTION',elective_group:'E2',study_plan_term:5},{course_code:'SEC302',course_name:'Cryptography',credits:3,reason:'ELECTIVE_OPTION',elective_group:'E2',study_plan_term:5},{course_code:'SEC303',course_name:'Ethical Hacking',credits:3,reason:'ELECTIVE_OPTION',elective_group:'E2',study_plan_term:5},{course_code:'CSE320',course_name:'Software Engineering',credits:3,reason:'FUTURE_CORE',study_plan_term:6}],elective_options:{E2:[{course_code:'SEC301',course_name:'Network Security'},{course_code:'SEC302',course_name:'Cryptography'},{course_code:'SEC303',course_name:'Ethical Hacking'}]},remaining_credit_budget:6,max_allowed_credits:15,slots_by_course:{SEC301:[{day:'Sunday',period:1}],SEC302:[{day:'Monday',period:1}],SEC303:[{day:'Tuesday',period:1}],CSE320:[{day:'Wednesday',period:2}]},expected:{preferred_agent:'B',must_include_final:[],must_not_include:[],career_relevance:{SEC301:3,SEC302:3,SEC303:3,CSE320:1}}},\n    {test_id:'mandatory_failed_retake',category:'mandatory',difficulty:'easy',student_name:'Eval Student 5',academic_program:'CS',cumulative_gpa:2.1,career_goal:'',current_semester:4,mandatory_courses:[{course_code:'CSE101',course_name:'Intro to CS',credits:3,reason:'FAILED_RETAKE'},{course_code:'MTH201',course_name:'Linear Algebra',credits:3,reason:'FAILED_RETAKE'}],mandatory_credits:6,flexible_courses:[{course_code:'CSE220',course_name:'Algorithms',credits:3,reason:'FUTURE_CORE',study_plan_term:5}],elective_options:{},remaining_credit_budget:6,max_allowed_credits:12,slots_by_course:{CSE101:[{day:'Sunday',period:1}],MTH201:[{day:'Monday',period:2}],CSE220:[{day:'Wednesday',period:1}]},expected:{preferred_agent:'A',must_include_final:['CSE101','MTH201'],must_not_include:[],career_relevance:{}}},\n    {test_id:'mandatory_current_semester',category:'mandatory',difficulty:'easy',student_name:'Eval Student 6',academic_program:'CS',cumulative_gpa:3.0,career_goal:'web development',current_semester:3,mandatory_courses:[{course_code:'CSE201',course_name:'OOP',credits:3,reason:'CURRENT_SEMESTER_CORE'},{course_code:'MTH202',course_name:'Discrete Math',credits:3,reason:'CURRENT_SEMESTER_CORE'}],mandatory_credits:6,flexible_courses:[{course_code:'WEB301',course_name:'Web Technologies',credits:3,reason:'FUTURE_CORE',study_plan_term:5}],elective_options:{},remaining_credit_budget:9,max_allowed_credits:15,slots_by_course:{CSE201:[{day:'Sunday',period:1}],MTH202:[{day:'Monday',period:1}],WEB301:[{day:'Tuesday',period:2}]},expected:{preferred_agent:'B',must_include_final:['CSE201','MTH202'],must_not_include:[],career_relevance:{WEB301:3,CSE201:2,MTH202:1}}},\n    {test_id:'prereqs_filtered',category:'edge_case',difficulty:'easy',student_name:'Eval Student 7',academic_program:'CS',cumulative_gpa:2.5,career_goal:'general',current_semester:4,mandatory_courses:[],mandatory_credits:0,flexible_courses:[{course_code:'CSE310',course_name:'Computer Architecture',credits:3,reason:'FUTURE_CORE',study_plan_term:5},{course_code:'CSE311',course_name:'Embedded Systems',credits:3,reason:'FUTURE_CORE',study_plan_term:6}],elective_options:{},remaining_credit_budget:12,max_allowed_credits:15,slots_by_course:{CSE310:[{day:'Sunday',period:2}],CSE311:[{day:'Tuesday',period:3}]},expected:{preferred_agent:'A',must_include_final:[],must_not_include:[],career_relevance:{}}},\n    {test_id:'flexible_exceeds_budget',category:'constraint',difficulty:'medium',student_name:'Eval Student 8',academic_program:'CS',cumulative_gpa:2.3,career_goal:'mobile development',current_semester:5,mandatory_courses:[{course_code:'CSE250',course_name:'Databases',credits:3,reason:'CURRENT_SEMESTER_CORE'}],mandatory_credits:3,flexible_courses:[{course_code:'MOB301',course_name:'Mobile App Dev',credits:3,reason:'FUTURE_CORE',study_plan_term:6},{course_code:'MOB302',course_name:'iOS Development',credits:3,reason:'FUTURE_CORE',study_plan_term:7},{course_code:'MOB303',course_name:'Android Development',credits:3,reason:'FUTURE_CORE',study_plan_term:7},{course_code:'CSE340',course_name:'Cloud Computing',credits:3,reason:'FUTURE_CORE',study_plan_term:8}],elective_options:{},remaining_credit_budget:3,max_allowed_credits:12,slots_by_course:{CSE250:[{day:'Sunday',period:1}],MOB301:[{day:'Monday',period:2}],MOB302:[{day:'Tuesday',period:1}],MOB303:[{day:'Wednesday',period:1}],CSE340:[{day:'Thursday',period:2}]},expected:{preferred_agent:'A',must_include_final:['CSE250'],must_not_include:[],career_relevance:{MOB301:3,MOB302:2,MOB303:2,CSE340:1}}},\n    {test_id:'career_obvious_course',category:'career',difficulty:'easy',student_name:'Eval Student 9',academic_program:'CS',cumulative_gpa:3.5,career_goal:'machine learning engineer',current_semester:6,mandatory_courses:[],mandatory_credits:0,flexible_courses:[{course_code:'AIE314',course_name:'Machine Learning',credits:3,reason:'ELECTIVE_OPTION',elective_group:'E1',study_plan_term:6},{course_code:'CSE360',course_name:'Compiler Design',credits:3,reason:'FUTURE_CORE',study_plan_term:7}],elective_options:{E1:[{course_code:'AIE314',course_name:'Machine Learning'},{course_code:'AIE323',course_name:'Computer Vision'}]},remaining_credit_budget:6,max_allowed_credits:18,slots_by_course:{AIE314:[{day:'Monday',period:1}],CSE360:[{day:'Wednesday',period:2}]},expected:{preferred_agent:'B',must_include_final:[],must_not_include:[],career_relevance:{AIE314:3,CSE360:1}}},\n    {test_id:'balanced_workload',category:'workload',difficulty:'medium',student_name:'Eval Student 10',academic_program:'CS',cumulative_gpa:2.7,career_goal:'software engineering',current_semester:5,mandatory_courses:[{course_code:'CSE301',course_name:'Operating Systems',credits:3,reason:'CURRENT_SEMESTER_CORE'}],mandatory_credits:3,flexible_courses:[{course_code:'CSE302',course_name:'Software Testing',credits:3,reason:'FUTURE_CORE',study_plan_term:6},{course_code:'CSE303',course_name:'DevOps',credits:3,reason:'FUTURE_CORE',study_plan_term:7}],elective_options:{},remaining_credit_budget:6,max_allowed_credits:15,slots_by_course:{CSE301:[{day:'Sunday',period:1}],CSE302:[{day:'Tuesday',period:2}],CSE303:[{day:'Thursday',period:3}]},expected:{preferred_agent:'B',must_include_final:['CSE301'],must_not_include:[],career_relevance:{CSE302:2,CSE303:2,CSE301:1}}},\n    {test_id:'time_conflict_trap',category:'workload',difficulty:'hard',student_name:'Eval Student 11',academic_program:'CS',cumulative_gpa:3.1,career_goal:'data science',current_semester:5,mandatory_courses:[{course_code:'CSE301',course_name:'Operating Systems',credits:3,reason:'CURRENT_SEMESTER_CORE'}],mandatory_credits:3,flexible_courses:[{course_code:'AIE314',course_name:'Machine Learning',credits:3,reason:'ELECTIVE_OPTION',elective_group:'E1',study_plan_term:5},{course_code:'CSE322',course_name:'Database Systems',credits:3,reason:'FUTURE_CORE',study_plan_term:6}],elective_options:{E1:[{course_code:'AIE314',course_name:'Machine Learning'},{course_code:'AIE323',course_name:'Computer Vision'}]},remaining_credit_budget:6,max_allowed_credits:15,slots_by_course:{CSE301:[{day:'Sunday',period:1}],AIE314:[{day:'Sunday',period:1},{day:'Tuesday',period:2}],CSE322:[{day:'Sunday',period:1}]},expected:{preferred_agent:'B',must_include_final:['CSE301'],must_not_include:[],career_relevance:{AIE314:3,CSE322:2,CSE301:1}}},\n    {test_id:'no_mandatory_no_career',category:'edge_case',difficulty:'easy',student_name:'Eval Student 12',academic_program:'CS',cumulative_gpa:2.9,career_goal:'',current_semester:4,mandatory_courses:[],mandatory_credits:0,flexible_courses:[{course_code:'CSE220',course_name:'Algorithms',credits:3,reason:'FUTURE_CORE',study_plan_term:5},{course_code:'CSE230',course_name:'Theory of Computation',credits:3,reason:'FUTURE_CORE',study_plan_term:6}],elective_options:{},remaining_credit_budget:12,max_allowed_credits:15,slots_by_course:{CSE220:[{day:'Monday',period:1}],CSE230:[{day:'Wednesday',period:2}]},expected:{preferred_agent:'A',must_include_final:[],must_not_include:[],career_relevance:{}}}\n  ];\n}\nreturn testCases.map(tc => ({ json: tc }));"
+      },
+      "id": "f-load-test-cases",
+      "name": "Load Test Cases",
+      "position": [
+        304,
+        352
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "f-split-batches",
+      "name": "Split In Batches",
+      "position": [
+        608,
+        352
+      ],
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nif (!staticData.results) staticData.results = [];\nconst item = $input.first().json;\nstaticData.results.push(item);\nreturn [{ json: { collected: staticData.results.length, latest: item.test_id } }];"
+      },
+      "id": "f-collect-result",
+      "name": "Collect Result",
+      "position": [
+        2704,
+        352
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "content": "## Project F: LLM Recommendation Evaluation\n\nPOST /eval-recommendations + Manual Trigger\nRuns 12 benchmark cases through Agent A, Agent B, Fusion Judge.\nScores with deterministic metrics + LLM explanation judge.\nReturns aggregate JSON/CSV report."
+      },
+      "id": "f-sticky",
+      "name": "Sticky Note",
+      "position": [
+        -608,
+        -384
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "id": "f-groq-b",
+      "name": "Groq Chat Model (Agent B)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        1824
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "u3HaM0Tj65Nai5fI",
+          "name": "Groq account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"recommended_courses_b\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"required\":[\"recommended_courses_b\"],\"additionalProperties\":false}"
+      },
+      "id": "f-parser-b",
+      "name": "Structured Output Parser B",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1424,
+        1824
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "id": "f-merge-ab",
+      "name": "Merge A+B",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1664,
+        1424
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "id": "f-groq-judge",
+      "name": "Groq Chat Model (Judge)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1904,
+        1472
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "u3HaM0Tj65Nai5fI",
+          "name": "Groq account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"recommended_schedule\":{\"type\":\"object\",\"properties\":{\"total_credits\":{\"type\":\"number\"},\"courses\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"course_code\":{\"type\":\"string\"},\"course_name\":{\"type\":\"string\"},\"credits\":{\"type\":\"number\"},\"ai_reasoning\":{\"type\":\"string\"}},\"required\":[\"course_code\",\"course_name\",\"credits\",\"ai_reasoning\"]}}},\"required\":[\"total_credits\",\"courses\"]}},\"required\":[\"recommended_schedule\"]}"
+      },
+      "id": "f-parser-judge",
+      "name": "Structured Output Parser Judge",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2064,
+        1472
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Score Recommendation Decision — deterministic metrics\nconst testCase = $('Split In Batches').first().json;\nconst agentAOutput = $('Agent A Workload Analyst').first().json;\nconst agentBOutput = $('Agent B Career Matcher').first().json;\nconst fusionOutput = $('Fusion Judge').first().json;\n\n// Extract arrays\nconst agentACodes = (agentAOutput.output && agentAOutput.output.recommended_courses_a) || [];\nconst agentBCodes = (agentBOutput.output && agentBOutput.output.recommended_courses_b) || [];\nconst fusionSchedule = (fusionOutput.output && fusionOutput.output.recommended_schedule) || {};\nconst fusionCourses = (fusionSchedule.courses || []).map(c => c.course_code);\n\n// Helpers\nfunction courseMap(courses) {\n  const m = {};\n  for (const c of courses) m[c.course_code] = c;\n  return m;\n}\nfunction selectedCredits(codes, lookup) {\n  return codes.reduce((sum, c) => sum + ((lookup[c] && lookup[c].credits) || 0), 0);\n}\nfunction poolPrecision(codes, flexLookup) {\n  if (codes.length === 0) return 1;\n  const valid = codes.filter(c => flexLookup[c]);\n  return valid.length / codes.length;\n}\nfunction electiveCompliance(codes, flexLookup) {\n  const groupsSeen = {};\n  for (const c of codes) {\n    const fc = flexLookup[c];\n    if (fc && fc.elective_group) {\n      if (groupsSeen[fc.elective_group]) return 0;\n      groupsSeen[fc.elective_group] = true;\n    }\n  }\n  return 1;\n}\nfunction computeNdcg(codes, relevanceGrades) {\n  if (!relevanceGrades || Object.keys(relevanceGrades).length === 0) return null;\n  const gains = codes.map(c => relevanceGrades[c] || 0);\n  if (gains.length === 0) return null;\n  let dcg = 0;\n  for (let i = 0; i < gains.length; i++) dcg += gains[i] / Math.log2(i + 2);\n  const ideal = Object.values(relevanceGrades).sort((a, b) => b - a).slice(0, codes.length);\n  let idcg = 0;\n  for (let i = 0; i < ideal.length; i++) idcg += ideal[i] / Math.log2(i + 2);\n  return idcg === 0 ? 0 : dcg / idcg;\n}\nfunction workloadBalance(codes, slotsByCourse) {\n  if (!slotsByCourse || codes.length === 0) return 1;\n  const daySlots = {};\n  const occupied = new Set();\n  for (const c of codes) {\n    const slots = slotsByCourse[c] || [];\n    for (const s of slots) {\n      const key = s.day + '-' + s.period;\n      if (occupied.has(key)) return 0;\n      occupied.add(key);\n      daySlots[s.day] = (daySlots[s.day] || 0) + 1;\n    }\n  }\n  const maxDay = Math.max(...Object.values(daySlots), 0);\n  if (maxDay <= 2) return 1;\n  if (maxDay === 3) return 0.5;\n  return 0;\n}\nfunction prefPolicyCompliance(finalFlex, aCodes, bCodes, preferred) {\n  const overlapA = finalFlex.filter(c => aCodes.includes(c)).length;\n  const overlapB = finalFlex.filter(c => bCodes.includes(c)).length;\n  if (preferred === 'A') return overlapA >= overlapB ? 1 : 0;\n  return overlapB >= overlapA ? 1 : 0;\n}\nfunction safeAvg(vals) {\n  const valid = vals.filter(v => v !== null && v !== undefined);\n  if (valid.length === 0) return 0;\n  return valid.reduce((a, b) => a + b, 0) / valid.length;\n}\n\nconst flexLookup = courseMap(testCase.flexible_courses);\nconst mandatoryLookup = courseMap(testCase.mandatory_courses);\nconst expected = testCase.expected || {};\nconst slotsByCourse = testCase.slots_by_course || {};\n\n// Preferred agent\nlet preferredAgent = expected.preferred_agent;\nif (!preferredAgent) {\n  if (testCase.cumulative_gpa < 2.5) preferredAgent = 'A';\n  else if (testCase.career_goal && testCase.career_goal !== 'general') preferredAgent = 'B';\n  else preferredAgent = 'A';\n}\n\n// --- Agent A Metrics ---\nconst a_schema_valid = Array.isArray(agentACodes) ? 1 : 0;\nconst a_pool_precision = poolPrecision(agentACodes, flexLookup);\nconst a_credit_compliance = selectedCredits(agentACodes, flexLookup) <= testCase.remaining_credit_budget ? 1 : 0;\nconst a_elective_compliance = electiveCompliance(agentACodes, flexLookup);\nconst a_empty_pool = (testCase.flexible_courses.length === 0) ? (agentACodes.length === 0 ? 1 : 0) : 1;\nconst a_workload = workloadBalance(agentACodes, slotsByCourse);\nconst a_hard_gate = a_schema_valid && a_pool_precision && a_credit_compliance && a_elective_compliance && a_empty_pool;\nconst a_score = safeAvg([a_pool_precision, a_credit_compliance, a_elective_compliance, a_empty_pool, a_workload]);\n\n// --- Agent B Metrics ---\nconst b_schema_valid = Array.isArray(agentBCodes) ? 1 : 0;\nconst b_pool_precision = poolPrecision(agentBCodes, flexLookup);\nconst b_credit_compliance = selectedCredits(agentBCodes, flexLookup) <= testCase.remaining_credit_budget ? 1 : 0;\nconst b_elective_compliance = electiveCompliance(agentBCodes, flexLookup);\nconst b_empty_pool = (testCase.flexible_courses.length === 0) ? (agentBCodes.length === 0 ? 1 : 0) : 1;\nconst b_ndcg = computeNdcg(agentBCodes, expected.career_relevance);\nconst b_hard_gate = b_schema_valid && b_pool_precision && b_credit_compliance && b_elective_compliance && b_empty_pool;\nconst b_score = safeAvg([b_pool_precision, b_credit_compliance, b_elective_compliance, b_empty_pool, b_ndcg]);\n\n// --- Fusion Metrics ---\nconst f_schema_valid = (fusionSchedule.total_credits !== undefined && Array.isArray(fusionSchedule.courses)) ? 1 : 0;\nconst mandatoryCodes = testCase.mandatory_courses.map(c => c.course_code);\nconst f_mandatory_recall = mandatoryCodes.length === 0 ? 1 : mandatoryCodes.filter(c => fusionCourses.includes(c)).length / mandatoryCodes.length;\nconst fusionFlexCodes = fusionCourses.filter(c => !mandatoryLookup[c]);\nconst f_pool_precision = fusionFlexCodes.length === 0 ? 1 : fusionFlexCodes.filter(c => flexLookup[c]).length / fusionFlexCodes.length;\nconst allCourseLookup = { ...flexLookup, ...mandatoryLookup };\nconst f_total_selected = selectedCredits(fusionCourses, allCourseLookup) + testCase.mandatory_credits;\nconst f_max_credit = (selectedCredits(fusionCourses, allCourseLookup) <= testCase.max_allowed_credits) ? 1 : 0;\nconst reportedTotal = fusionSchedule.total_credits || 0;\nconst actualTotal = fusionSchedule.courses ? fusionSchedule.courses.reduce((s, c) => s + (c.credits || 0), 0) : 0;\nconst f_total_correct = (reportedTotal === actualTotal) ? 1 : 0;\nconst f_elective = electiveCompliance(fusionFlexCodes, flexLookup);\nconst f_pref = prefPolicyCompliance(fusionFlexCodes, agentACodes, agentBCodes, preferredAgent);\nconst f_ndcg = computeNdcg(fusionCourses, expected.career_relevance);\nconst f_workload = workloadBalance(fusionCourses, slotsByCourse);\nconst f_hard_gate = f_schema_valid && (f_mandatory_recall >= 1) && f_pool_precision && f_max_credit && f_total_correct && f_elective;\n\n// Fusion score with weighted formula\nconst coreAvg = safeAvg([f_mandatory_recall, f_pool_precision, f_max_credit, f_total_correct, f_elective].filter(v => v !== null));\nlet f_score = 0.45 * coreAvg + 0.25 * (f_pref !== null ? f_pref : 0) + 0.20 * (f_ndcg !== null ? f_ndcg : 0) + 0.10 * (f_workload !== null ? f_workload : 0);\nif (f_ndcg === null) {\n  const w = 0.45 + 0.25 + 0.10;\n  f_score = (0.45 * coreAvg + 0.25 * f_pref + 0.10 * f_workload) / w;\n}\n\nconst case_pass = !!(a_hard_gate && b_hard_gate && f_hard_gate && f_score >= 0.85);\n\nreturn [{ json: {\n  test_id: testCase.test_id,\n  category: testCase.category,\n  difficulty: testCase.difficulty,\n  agent_a: { selected: agentACodes, hard_gate_pass: !!a_hard_gate, score: Math.round(a_score * 10000) / 10000, metrics: { schema_valid: a_schema_valid, pool_precision: a_pool_precision, credit_compliance: a_credit_compliance, elective_compliance: a_elective_compliance, empty_pool_compliance: a_empty_pool, workload_balance_score: a_workload } },\n  agent_b: { selected: agentBCodes, hard_gate_pass: !!b_hard_gate, score: Math.round(b_score * 10000) / 10000, metrics: { schema_valid: b_schema_valid, pool_precision: b_pool_precision, credit_compliance: b_credit_compliance, elective_compliance: b_elective_compliance, empty_pool_compliance: b_empty_pool, career_ndcg: b_ndcg } },\n  fusion: { selected: fusionCourses, hard_gate_pass: !!f_hard_gate, score: Math.round(f_score * 10000) / 10000, metrics: { schema_valid: f_schema_valid, mandatory_recall: f_mandatory_recall, pool_precision: f_pool_precision, max_credit_compliance: f_max_credit, total_credits_correct: f_total_correct, elective_compliance: f_elective, preference_policy_compliance: f_pref, career_ndcg: f_ndcg, workload_balance_score: f_workload } },\n  case_pass: case_pass\n} }];"
+      },
+      "id": "f-score-decision",
+      "name": "Score Recommendation Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are evaluating explanation quality for an academic course recommendation.\n\nTest case:\n{{ JSON.stringify($('Split In Batches').first().json) }}\n\nFinal recommendation:\n{{ JSON.stringify($('Fusion Judge').first().json.output.recommended_schedule) }}\n\nScore the explanations only. Do not judge hard academic constraints.\n\nReturn:\n{\n  \"explanation_quality\": 0 | 1 | 2,\n  \"explanation_notes\": \"<one concise sentence>\"\n}\n\nRubric:\n0 = missing, generic, or contradicts the selected course.\n1 = understandable but shallow.\n2 = specific and aligned with the student's GPA, career goal, or workload constraints.",
+        "hasOutputParser": true
+      },
+      "id": "f-expl-judge",
+      "name": "Explanation Quality Judge",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        2112,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+        "options": {}
+      },
+      "id": "f-groq-expl",
+      "name": "Groq Chat Model (Explanation)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        2112,
+        400
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "u3HaM0Tj65Nai5fI",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"explanation_quality\":{\"type\":\"number\",\"enum\":[0,1,2]},\"explanation_notes\":{\"type\":\"string\"}},\"required\":[\"explanation_quality\",\"explanation_notes\"],\"additionalProperties\":false}"
+      },
+      "id": "f-parser-expl",
+      "name": "Structured Output Parser Explanation",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2272,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge deterministic result with explanation judge output\nlet result;\ntry {\n  result = $('Score Recommendation Decision').first().json;\n} catch(e) {\n  result = { error: 'Could not read deterministic result' };\n}\n\nlet explQuality = null;\nlet explNotes = 'Explanation judge unavailable';\ntry {\n  const judgeOut = $input.first().json;\n  const output = judgeOut.output || judgeOut;\n  if (output.explanation_quality !== undefined && [0,1,2].includes(output.explanation_quality)) {\n    explQuality = output.explanation_quality;\n    explNotes = output.explanation_notes || '';\n  }\n} catch(e) {}\n\nreturn [{ json: { ...result, explanation_quality: explQuality, explanation_notes: explNotes } }];"
+      },
+      "id": "f-attach-expl",
+      "name": "Attach Explanation Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate all collected results into final report\nconst staticData = $getWorkflowStaticData('global');\nconst results = staticData.results || [];\n\nconst total = results.length;\nconst passed = results.filter(r => r.case_pass).length;\nconst passRate = total > 0 ? Math.round((passed / total) * 10000) / 10000 : 0;\n\nfunction avg(arr) {\n  const valid = arr.filter(v => v !== null && v !== undefined);\n  return valid.length > 0 ? Math.round((valid.reduce((a,b) => a+b, 0) / valid.length) * 10000) / 10000 : null;\n}\n\nconst agentAPassRate = avg(results.map(r => r.agent_a && r.agent_a.hard_gate_pass ? 1 : 0));\nconst agentAAvgScore = avg(results.map(r => r.agent_a ? r.agent_a.score : null));\nconst agentBPassRate = avg(results.map(r => r.agent_b && r.agent_b.hard_gate_pass ? 1 : 0));\nconst agentBAvgScore = avg(results.map(r => r.agent_b ? r.agent_b.score : null));\nconst agentBNdcg = avg(results.map(r => r.agent_b && r.agent_b.metrics ? r.agent_b.metrics.career_ndcg : null));\nconst fusionPassRate = avg(results.map(r => r.fusion && r.fusion.hard_gate_pass ? 1 : 0));\nconst fusionAvgScore = avg(results.map(r => r.fusion ? r.fusion.score : null));\nconst fusionMandatory = avg(results.map(r => r.fusion && r.fusion.metrics ? r.fusion.metrics.mandatory_recall : null));\nconst fusionCredit = avg(results.map(r => r.fusion && r.fusion.metrics ? r.fusion.metrics.max_credit_compliance : null));\nconst fusionPref = avg(results.map(r => r.fusion && r.fusion.metrics ? r.fusion.metrics.preference_policy_compliance : null));\nconst explAvg = avg(results.map(r => r.explanation_quality));\nconst failedCases = results.filter(r => !r.case_pass).map(r => ({ test_id: r.test_id, category: r.category, agent_a_gate: r.agent_a ? r.agent_a.hard_gate_pass : false, agent_b_gate: r.agent_b ? r.agent_b.hard_gate_pass : false, fusion_gate: r.fusion ? r.fusion.hard_gate_pass : false, fusion_score: r.fusion ? r.fusion.score : 0 }));\n\n// CSV output\nconst csvHeader = 'test_id,category,difficulty,case_pass,agent_a_score,agent_b_score,fusion_score,agent_a_hard_gate,agent_b_hard_gate,fusion_hard_gate,mandatory_recall,pool_precision,max_credit_compliance,total_credits_correct,elective_compliance,preference_policy_compliance,career_ndcg,workload_balance_score,explanation_quality';\nconst csvRows = results.map(r => {\n  const fm = (r.fusion && r.fusion.metrics) || {};\n  return [r.test_id, r.category, r.difficulty, r.case_pass, r.agent_a ? r.agent_a.score : '', r.agent_b ? r.agent_b.score : '', r.fusion ? r.fusion.score : '', r.agent_a ? r.agent_a.hard_gate_pass : '', r.agent_b ? r.agent_b.hard_gate_pass : '', r.fusion ? r.fusion.hard_gate_pass : '', fm.mandatory_recall !== undefined ? fm.mandatory_recall : '', fm.pool_precision !== undefined ? fm.pool_precision : '', fm.max_credit_compliance !== undefined ? fm.max_credit_compliance : '', fm.total_credits_correct !== undefined ? fm.total_credits_correct : '', fm.elective_compliance !== undefined ? fm.elective_compliance : '', fm.preference_policy_compliance !== undefined ? fm.preference_policy_compliance : '', fm.career_ndcg !== null ? fm.career_ndcg : '', fm.workload_balance_score !== undefined ? fm.workload_balance_score : '', r.explanation_quality !== null ? r.explanation_quality : ''].join(',');\n});\nconst csvOutput = csvHeader + '\\n' + csvRows.join('\\n');\n\n// Clear static data for next run\nstaticData.results = [];\n\nreturn [{ json: {\n  workflow: 'Project: F: LLM Recommendation Evaluation',\n  total_tests: total,\n  passed_tests: passed,\n  pass_rate: passRate,\n  agent_a: { hard_gate_pass_rate: agentAPassRate, avg_score: agentAAvgScore },\n  agent_b: { hard_gate_pass_rate: agentBPassRate, avg_score: agentBAvgScore, avg_career_ndcg: agentBNdcg },\n  fusion: { hard_gate_pass_rate: fusionPassRate, avg_score: fusionAvgScore, avg_mandatory_recall: fusionMandatory, avg_credit_compliance: fusionCredit, avg_preference_policy_compliance: fusionPref },\n  explanation_quality_avg: explAvg,\n  failed_cases: failedCases,\n  csv_output: csvOutput,\n  detailed_results: results\n} }];"
+      },
+      "id": "f-aggregate",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3008,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "f-respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3264,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"recommended_courses_a\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"required\":[\"recommended_courses_a\"],\"additionalProperties\":false}"
+      },
+      "id": "f-parser-a",
+      "name": "Structured Output Parser A",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1440,
+        1488
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "id": "f-groq-a",
+      "name": "Groq Chat Model (Agent A)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        1488
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "u3HaM0Tj65Nai5fI",
+          "name": "Groq account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"recommended_courses_a\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"required\":[\"recommended_courses_a\"],\"additionalProperties\":false}"
+      },
+      "id": "78e0b870-1667-4693-afa4-500d9f20a9ae",
+      "name": "Structured Output Parser A1",
+      "position": [
+        1120,
+        448
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"recommended_courses_b\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"required\":[\"recommended_courses_b\"],\"additionalProperties\":false}"
+      },
+      "id": "a373307c-ccb2-486d-9482-c81cccb8467a",
+      "name": "Structured Output Parser B1",
+      "position": [
+        1120,
+        768
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {},
+      "id": "6fd1506e-2c6b-411e-ac7c-d994effe33bb",
+      "name": "Merge A+B1",
+      "position": [
+        1296,
+        432
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"recommended_schedule\":{\"type\":\"object\",\"properties\":{\"total_credits\":{\"type\":\"number\"},\"courses\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"course_code\":{\"type\":\"string\"},\"course_name\":{\"type\":\"string\"},\"credits\":{\"type\":\"number\"},\"ai_reasoning\":{\"type\":\"string\"}},\"required\":[\"course_code\",\"course_name\",\"credits\",\"ai_reasoning\"]}}},\"required\":[\"total_credits\",\"courses\"]}},\"required\":[\"recommended_schedule\"]}"
+      },
+      "id": "25852fee-6742-4b91-9e6f-6d3e8a8a3970",
+      "name": "Structured Output Parser Judge1",
+      "position": [
+        1648,
+        512
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "model": "deepseek-v4-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "position": [
+        960,
+        464
+      ],
+      "id": "e3e0c35f-5a8f-48d8-b7e2-a797e46f826b",
+      "name": "DeepSeek Chat Model",
+      "credentials": {
+        "deepSeekApi": {
+          "id": "83gLFmMwL0pEUBwn",
+          "name": "DeepSeek account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "deepseek-v4-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "position": [
+        960,
+        816
+      ],
+      "id": "e999b840-a9e2-4b76-a2d2-eabc069317f8",
+      "name": "DeepSeek Chat Model1",
+      "credentials": {
+        "deepSeekApi": {
+          "id": "83gLFmMwL0pEUBwn",
+          "name": "DeepSeek account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "deepseek-v4-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        576
+      ],
+      "id": "ed43f9e2-4b0d-4b25-9504-312b6466dc86",
+      "name": "DeepSeek Chat Model2",
+      "credentials": {
+        "deepSeekApi": {
+          "id": "83gLFmMwL0pEUBwn",
+          "name": "DeepSeek account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an academic workload advisor at Alamein University.\n\nStudent: {{ $('Split In Batches').first().json.student_name }} ({{ $('Split In Batches').first().json.academic_program }}, GPA {{ $('Split In Batches').first().json.cumulative_gpa }})\nSemester: {{ $('Split In Batches').first().json.current_semester }}\n\n🔒 MANDATORY COURSES (already locked — DO NOT remove or change these):\n{{ JSON.stringify($('Split In Batches').first().json.mandatory_courses, null, 2) }}\nMandatory credits used: {{ $('Split In Batches').first().json.mandatory_credits }}\n\n📋 FLEXIBLE COURSE POOL (pick from these ONLY):\n{{ JSON.stringify($('Split In Batches').first().json.flexible_courses, null, 2) }}\n\nRemaining credit budget: {{ $('Split In Batches').first().json.remaining_credit_budget }}\nMax total credits: {{ $('Split In Batches').first().json.max_allowed_credits }}\n\nRules:\n1. Select courses ONLY from the flexible pool above\n2. Do NOT exceed the remaining credit budget ({{ $('Split In Batches').first().json.remaining_credit_budget }})\n3. For elective groups, pick at most ONE course per group\n4. Prioritize balanced workload across days\n5. If the flexible pool is empty, return an empty array\n\nOutput ONLY a valid JSON array of course codes from the flexible pool.\nExample: [\"CSE322\", \"AIE314\"]",
+        "hasOutputParser": true
+      },
+      "id": "f-agent-a",
+      "name": "Agent A Workload Analyst2",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1264,
+        1280
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a career advisor at Alamein University.\n\nStudent: {{ $('Split In Batches').first().json.student_name }} ({{ $('Split In Batches').first().json.academic_program }}, GPA {{ $('Split In Batches').first().json.cumulative_gpa }})\nCareer goal: {{ $('Split In Batches').first().json.career_goal }}\nSemester: {{ $('Split In Batches').first().json.current_semester }}\n\n🔒 MANDATORY COURSES (already locked — DO NOT remove or change these):\n{{ JSON.stringify($('Split In Batches').first().json.mandatory_courses, null, 2) }}\nMandatory credits used: {{ $('Split In Batches').first().json.mandatory_credits }}\n\n📋 FLEXIBLE COURSE POOL (pick from these ONLY):\n{{ JSON.stringify($('Split In Batches').first().json.flexible_courses, null, 2) }}\n\nRemaining credit budget: {{ $('Split In Batches').first().json.remaining_credit_budget }}\nMax total credits: {{ $('Split In Batches').first().json.max_allowed_credits }}\n\nRules:\n1. Select courses ONLY from the flexible pool above\n2. Do NOT exceed the remaining credit budget ({{ $('Split In Batches').first().json.remaining_credit_budget }})\n3. For elective groups, pick at most ONE course per group\n4. Prioritize courses aligned with the career goal: {{ $('Split In Batches').first().json.career_goal }}\n5. If the flexible pool is empty, return an empty array\n\nOutput ONLY a valid JSON array of course codes from the flexible pool.\nExample: [\"AIE323\", \"AIE241\"]",
+        "hasOutputParser": true
+      },
+      "id": "f-agent-b",
+      "name": "Agent B Career Matcher2",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1264,
+        1632
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are the Final Fusion Advisor at Alamein University.\n\nStudent: {{ $('Split In Batches').first().json.student_name }} ({{ $('Split In Batches').first().json.academic_program }})\nGPA: {{ $('Split In Batches').first().json.cumulative_gpa }}\nCareer goal: {{ $('Split In Batches').first().json.career_goal }}\nSemester: {{ $('Split In Batches').first().json.current_semester }}\nMax credits: {{ $('Split In Batches').first().json.max_allowed_credits }}\n\n🔒 MANDATORY COURSES (MUST include ALL of these — non-negotiable):\n{{ JSON.stringify($('Split In Batches').first().json.mandatory_courses, null, 2) }}\n\nWorkload Agent proposes these FLEXIBLE additions: {{ JSON.stringify($input.all()[0].json.output.recommended_courses_a) }}\nCareer Agent proposes these FLEXIBLE additions: {{ JSON.stringify($input.all()[1].json.output.recommended_courses_b) }}\n\nRules:\n1. ALWAYS include ALL mandatory courses first\n2. Then merge the best flexible selections from both agents\n3. Do NOT exceed max credits: {{ $('Split In Batches').first().json.max_allowed_credits }}\n4. If GPA < 2.5, prefer Workload Agent selections (lighter load)\n5. If GPA >= 2.5 and career goal exists, prefer Career Agent selections\n6. For each course, use the EXACT course_code and course_name from the data\n7. If both agents returned empty arrays, output only mandatory courses\n\nOutput STRICTLY this JSON:\n{\n  \"recommended_schedule\": {\n    \"total_credits\": <number>,\n    \"courses\": [\n      { \"course_code\": \"<code>\", \"course_name\": \"<name>\", \"credits\": <number>, \"ai_reasoning\": \"<1 sentence>\" }\n    ]\n  }\n}",
+        "hasOutputParser": true
+      },
+      "id": "f-fusion-judge",
+      "name": "Fusion Judge3",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1920,
+        1232
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are the Final Fusion Advisor at Alamein University.\n\nStudent: {{ $('Split In Batches').first().json.student_name }} ({{ $('Split In Batches').first().json.academic_program }})\nGPA: {{ $('Split In Batches').first().json.cumulative_gpa }}\nCareer goal: {{ $('Split In Batches').first().json.career_goal }}\nSemester: {{ $('Split In Batches').first().json.current_semester }}\nMax credits: {{ $('Split In Batches').first().json.max_allowed_credits }}\n\n🔒 MANDATORY COURSES (MUST include ALL of these — non-negotiable):\n{{ JSON.stringify($('Split In Batches').first().json.mandatory_courses, null, 2) }}\n\nWorkload Agent proposes these FLEXIBLE additions: {{ JSON.stringify($input.all()[0].json.output.recommended_courses_a) }}\nCareer Agent proposes these FLEXIBLE additions: {{ JSON.stringify($input.all()[1].json.output.recommended_courses_b) }}\n\nRules:\n1. ALWAYS include ALL mandatory courses first\n2. Then merge the best flexible selections from both agents\n3. Do NOT exceed max credits: {{ $('Split In Batches').first().json.max_allowed_credits }}\n4. If GPA < 2.5, prefer Workload Agent selections (lighter load)\n5. If GPA >= 2.5 and career goal exists, prefer Career Agent selections\n6. For each course, use the EXACT course_code and course_name from the data\n7. If both agents returned empty arrays, output only mandatory courses\n\nOutput STRICTLY this JSON:\n{\n  \"recommended_schedule\": {\n    \"total_credits\": <number>,\n    \"courses\": [\n      { \"course_code\": \"<code>\", \"course_name\": \"<name>\", \"credits\": <number>, \"ai_reasoning\": \"<1 sentence>\" }\n    ]\n  }\n}",
+        "hasOutputParser": true
+      },
+      "id": "15b3aa3a-3a1b-4b98-9b08-cca3d9d0e413",
+      "name": "Fusion Judge",
+      "position": [
+        1504,
+        288
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an academic workload advisor at Alamein University.\n\nStudent: {{ $json.student_name }} ({{ $json.academic_program }}, GPA {{ $json.cumulative_gpa }})\nSemester: {{ $json.current_semester }}\n\n🔒 MANDATORY COURSES (already locked — DO NOT remove or change these):\n{{ JSON.stringify($json.mandatory_courses, null, 2) }}\nMandatory credits used: {{ $json.mandatory_credits }}\n\n📋 FLEXIBLE COURSE POOL (pick from these ONLY):\n{{ JSON.stringify($json.flexible_courses, null, 2) }}\n\nRemaining credit budget: {{ $json.remaining_credit_budget }}\nMax total credits: {{ $json.max_allowed_credits }}\n\n{% if Object.keys($json.elective_options).length > 0 %}\n⚡ ELECTIVE GROUPS (pick at most ONE course per group):\n{{ JSON.stringify($json.elective_options, null, 2) }}\n{% endif %}\n\nRules:\n1. Select courses ONLY from the flexible pool above\n2. Do NOT exceed the remaining credit budget ({{ $json.remaining_credit_budget }})\n3. For elective groups, pick at most ONE course per group\n4. Prioritize balanced workload across days\n5. If the flexible pool is empty, return an empty array\n\nOutput ONLY a valid JSON array of course codes from the flexible pool.\nExample: [\"CSE322\", \"AIE314\"]",
+        "hasOutputParser": true
+      },
+      "id": "6056acd0-e4fa-4e12-ad3d-f9dc0e9560e8",
+      "name": "Agent A Workload Analyst",
+      "position": [
+        960,
+        240
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a career advisor at Alamein University.\n\nStudent: {{ $json.student_name }} ({{ $json.academic_program }}, GPA {{ $json.cumulative_gpa }})\nCareer goal: {{ $json.career_goal }}\nSemester: {{ $json.current_semester }}\n\n🔒 MANDATORY COURSES (already locked — DO NOT remove or change these):\n{{ JSON.stringify($json.mandatory_courses, null, 2) }}\nMandatory credits used: {{ $json.mandatory_credits }}\n\n📋 FLEXIBLE COURSE POOL (pick from these ONLY):\n{{ JSON.stringify($json.flexible_courses, null, 2) }}\n\nRemaining credit budget: {{ $json.remaining_credit_budget }}\nMax total credits: {{ $json.max_allowed_credits }}\n\n{% if Object.keys($json.elective_options).length > 0 %}\n⚡ ELECTIVE GROUPS (pick at most ONE course per group):\n{{ JSON.stringify($json.elective_options, null, 2) }}\n{% endif %}\n\nRules:\n1. Select courses ONLY from the flexible pool above\n2. Do NOT exceed the remaining credit budget ({{ $json.remaining_credit_budget }})\n3. For elective groups, pick at most ONE course per group\n4. Prioritize courses aligned with the career goal: {{ $json.career_goal }}\n5. If the flexible pool is empty, return an empty array\n\nOutput ONLY a valid JSON array of course codes from the flexible pool.\nExample: [\"AIE323\", \"AIE241\"]",
+        "hasOutputParser": true
+      },
+      "id": "e423def9-851c-4639-95f1-767f2fd0ac97",
+      "name": "Agent B Career Matcher",
+      "position": [
+        960,
+        608
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Collect Result": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Split In Batches",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Load Test Cases": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Split In Batches",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Load Test Cases",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Load Test Cases",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Agent A Workload Analyst",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Agent B Career Matcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge A+B": {
+      "main": [
+        [
+          {
+            "node": "Fusion Judge3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Recommendation Decision": {
+      "main": [
+        [
+          {
+            "node": "Explanation Quality Judge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explanation Quality Judge": {
+      "main": [
+        [
+          {
+            "node": "Attach Explanation Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Explanation Score": {
+      "main": [
+        [
+          {
+            "node": "Collect Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model (Agent B)": {
+      "main": [
+        []
+      ],
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent B Career Matcher2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser B": {
+      "main": [
+        []
+      ],
+      "ai_outputParser": [
+        [
+          {
+            "node": "Agent B Career Matcher2",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model (Judge)": {
+      "main": [
+        []
+      ],
+      "ai_languageModel": [
+        [
+          {
+            "node": "Fusion Judge3",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser Judge": {
+      "main": [
+        []
+      ],
+      "ai_outputParser": [
+        [
+          {
+            "node": "Fusion Judge3",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model (Explanation)": {
+      "main": [
+        []
+      ],
+      "ai_languageModel": [
+        [
+          {
+            "node": "Explanation Quality Judge",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser Explanation": {
+      "main": [
+        []
+      ],
+      "ai_outputParser": [
+        [
+          {
+            "node": "Explanation Quality Judge",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser A": {
+      "main": [
+        []
+      ],
+      "ai_outputParser": [
+        [
+          {
+            "node": "Agent A Workload Analyst2",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model (Agent A)": {
+      "main": [
+        []
+      ],
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent A Workload Analyst2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser A1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Agent A Workload Analyst",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser B1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Agent B Career Matcher",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge A+B1": {
+      "main": [
+        [
+          {
+            "node": "Fusion Judge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser Judge1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Fusion Judge",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent A Workload Analyst",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent B Career Matcher",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Fusion Judge",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent A Workload Analyst2": {
+      "main": [
+        [
+          {
+            "node": "Merge A+B",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent B Career Matcher2": {
+      "main": [
+        [
+          {
+            "node": "Merge A+B",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Fusion Judge3": {
+      "main": [
+        []
+      ]
+    },
+    "Fusion Judge": {
+      "main": [
+        [
+          {
+            "node": "Score Recommendation Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent A Workload Analyst": {
+      "main": [
+        [
+          {
+            "node": "Merge A+B1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent B Career Matcher": {
+      "main": [
+        [
+          {
+            "node": "Merge A+B1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "4e40da2a-2a04-450a-9727-a69ff3a1afc9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "edb31cd461cc0cd52f96c655be384d8bb4dce03eead801b1dae3667302fe7784"
+  },
+  "id": "DLMtyif2fHmpfeLb",
+  "tags": []
+}

@@ -1,0 +1,893 @@
+{
+  "name": "Project: B: Schedule Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "advisor/generate-schedule",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b-webhook",
+      "name": "Advisor Webhook",
+      "position": [
+        0,
+        304
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "webhookId": "50a6a123-7a78-46ea-bc81-9558fc387a5d",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT s.student_id, s.name, s.program_code, s.cumulative_gpa, s.total_credits_passed, COALESCE(json_agg(DISTINCT jsonb_build_object('course_code', sg.course_code, 'grade', sg.grade, 'unit_taken', sg.unit_taken)) FILTER (WHERE sg.id IS NOT NULL), '[]') AS grades FROM students s LEFT JOIN student_grades sg ON s.student_id = sg.student_id GROUP BY s.student_id;",
+        "options": {}
+      },
+      "id": "b-read-demand",
+      "name": "Read Demand Data",
+      "position": [
+        288,
+        128
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM constraints;",
+        "options": {}
+      },
+      "id": "b-read-constraints",
+      "name": "Read Constraints",
+      "position": [
+        288,
+        288
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM elective_groups;",
+        "options": {}
+      },
+      "id": "b-read-electives",
+      "name": "Read Electives",
+      "position": [
+        288,
+        448
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM rooms;",
+        "options": {}
+      },
+      "id": "b-read-rooms",
+      "name": "Read Rooms",
+      "position": [
+        288,
+        608
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 6
+      },
+      "id": "b-merge",
+      "name": "Merge All Inputs",
+      "position": [
+        608,
+        320
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compute Offered Courses - adapted for Postgres row-level input\n// Uses $('NodeName') to reference each upstream query directly\n\nconst studentRows = $('Read Demand Data').all().map(i => i.json);\nconst studyPlanRows = $('Read Study Plan').all().map(i => i.json);\nconst constraintRows = $('Read Constraints').all().map(i => i.json);\nconst electiveRows = $('Read Electives').all().map(i => i.json);\n\n// Build constraints lookup\nconst constraintsData = {};\nfor (const c of constraintRows) constraintsData[c.constraint_id] = c;\n\n// Build elective groups\nconst electiveGroupsData = {};\nfor (const e of electiveRows) {\n    const prog = e.program_code;\n    const group = e.group_code;\n    if (!electiveGroupsData[prog]) electiveGroupsData[prog] = {};\n    if (!electiveGroupsData[prog][group]) electiveGroupsData[prog][group] = [];\n    electiveGroupsData[prog][group].push({ course_code: e.course_code, course_name: e.course_name || '' });\n}\n\n// Count failed courses across all students\nconst failedCounts = {};\nfor (const student of studentRows) {\n    const grades = student.grades;\n    if (Array.isArray(grades)) {\n        for (const g of grades) {\n            if (g && ['F', 'FW'].includes(String(g.grade))) {\n                failedCounts[g.course_code] = (failedCounts[g.course_code] || 0) + 1;\n            }\n        }\n    }\n}\n\nconst targetSemester = 'Fall';\nconst failThreshold = constraintsData['C004'] ? parseInt(constraintsData['C004'].value) : 30;\n\nconst groupedOfferedCourses = {};\nconst offeredCourseCodesByProgram = {};\n\nfor (const entry of studyPlanRows) {\n    const program = entry.program_code;\n    const cc = String(entry.course_code || '').trim();\n    if (!cc) continue;\n\n    if (!groupedOfferedCourses[program]) {\n        groupedOfferedCourses[program] = [];\n        offeredCourseCodesByProgram[program] = new Set();\n    }\n\n    const semesterNumber = parseInt(entry.semester_number, 10);\n    const isOdd = semesterNumber % 2 !== 0;\n    const isEven = semesterNumber % 2 === 0;\n    const isTargetSeason = (targetSemester === 'Fall' && isOdd) || (targetSemester === 'Spring' && isEven);\n\n    if (isTargetSeason) {\n        if (/^E\\d+$/.test(cc) && electiveGroupsData[program] && electiveGroupsData[program][cc]) {\n            for (const elective of electiveGroupsData[program][cc]) {\n                if (!offeredCourseCodesByProgram[program].has(elective.course_code)) {\n                    groupedOfferedCourses[program].push({\n                        course_code: elective.course_code,\n                        course_name: elective.course_name,\n                        credits: entry.credits,\n                        type: 'Elective Offering',\n                        elective_group: cc,\n                        semester_offered: String(semesterNumber),\n                        lec_hours: parseInt(entry.lec_hours) || 0,\n                        tut_hours: parseInt(entry.tut_hours) || 0,\n                        lab_hours: parseInt(entry.lab_hours) || 0\n                    });\n                    offeredCourseCodesByProgram[program].add(elective.course_code);\n                }\n            }\n        } else if (!cc.startsWith('UC') && !cc.startsWith('UE')) {\n            if (!offeredCourseCodesByProgram[program].has(cc)) {\n                groupedOfferedCourses[program].push({\n                    course_code: cc,\n                    course_name: entry.course_name || '',\n                    credits: entry.credits,\n                    type: 'Standard Offering',\n                    semester_offered: String(semesterNumber),\n                    lec_hours: parseInt(entry.lec_hours) || 0,\n                    tut_hours: parseInt(entry.tut_hours) || 0,\n                    lab_hours: parseInt(entry.lab_hours) || 0\n                });\n                offeredCourseCodesByProgram[program].add(cc);\n            }\n        }\n    }\n}\n\n// Force open courses with high failure rates\nfor (const [courseCode, count] of Object.entries(failedCounts)) {\n    if (count > failThreshold) {\n        const planEntries = studyPlanRows.filter(sp => sp.course_code === courseCode);\n        for (const planEntry of planEntries) {\n            const program = planEntry.program_code;\n            if (!groupedOfferedCourses[program]) {\n                groupedOfferedCourses[program] = [];\n                offeredCourseCodesByProgram[program] = new Set();\n            }\n            if (!offeredCourseCodesByProgram[program].has(courseCode)) {\n                groupedOfferedCourses[program].push({\n                    course_code: courseCode,\n                    course_name: planEntry.course_name || '',\n                    credits: planEntry.credits,\n                    type: 'Forced Open (>' + failThreshold + ' Fails Exception)',\n                    failing_student_count: count,\n                    semester_offered: String(planEntry.semester_number),\n                    lec_hours: parseInt(planEntry.lec_hours) || 0,\n                    tut_hours: parseInt(planEntry.tut_hours) || 0,\n                    lab_hours: parseInt(planEntry.lab_hours) || 0\n                });\n                offeredCourseCodesByProgram[program].add(courseCode);\n            }\n        }\n    }\n}\n\nreturn [{ json: { offered_courses: groupedOfferedCourses, target_semester: targetSemester } }];"
+      },
+      "id": "b-compute-offered",
+      "name": "Compute Offered Courses",
+      "position": [
+        832,
+        304
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// CSP Greedy Placement Solver v2 — Constraint-Aware\n// HC1: No two courses in same program+year share day+period\n// HC2: No two courses occupy same room at day+period\n// HC3: Cross-program shared courses scheduled once, 4-row output\n// HC4: Demand > room capacity → split into sections\n\nconst offeredCourses = $('Compute Offered Courses').first().json.offered_courses;\nconst roomItems = $('Read Rooms').all().map(i => i.json);\nconst studentRows = $('Read Demand Data').all().map(i => i.json);\nconst prereqRows = $('Read Prerequisites').all().map(i => i.json);\nconst studyPlanRows = $('Read Study Plan').all().map(i => i.json);\nconst webhookData = $('Advisor Webhook').first().json;\nconst term = (webhookData.body && webhookData.body.term) || '2252';\n\nconst halls = roomItems.filter(r => String(r.room_type).toUpperCase() === 'HALL').sort((a, b) => b.capacity - a.capacity);\nconst labs = roomItems.filter(r => String(r.room_type).toUpperCase() === 'LAB').sort((a, b) => b.capacity - a.capacity);\nconst DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];\nconst PERIODS = [1, 2, 3, 4];\n\nfunction semToYear(sem) { return 'Y' + Math.ceil(parseInt(sem, 10) / 2); }\n\nconst prereqMap = {};\nfor (const p of prereqRows) {\n  if (p.condition === 'NONE' || p.prerequisite_code === 'None' || p.prerequisite_code === p.course_code) continue;\n  if (!prereqMap[p.course_code]) prereqMap[p.course_code] = [];\n  prereqMap[p.course_code].push(p);\n}\n\nconst courseHours = {};\nfor (const sp of studyPlanRows) {\n  const cc = sp.course_code;\n  if (!courseHours[cc]) {\n    courseHours[cc] = { lec: parseInt(sp.lec_hours) || 0, tut: parseInt(sp.tut_hours) || 0, lab: parseInt(sp.lab_hours) || 0 };\n  }\n}\n\nconst studentPassed = {};\nconst studentProgram = {};\nfor (const s of studentRows) {\n  const sid = s.student_id;\n  studentProgram[sid] = s.program_code;\n  studentPassed[sid] = new Set();\n  const grades = Array.isArray(s.grades) ? s.grades : [];\n  for (const g of grades) {\n    if (g && !['F', 'FW', 'W', 'U'].includes(String(g.grade))) {\n      studentPassed[sid].add(g.course_code);\n    }\n  }\n}\n\nfunction isEligible(studentId, courseCode) {\n  if (studentPassed[studentId].has(courseCode)) return false;\n  const prereqs = prereqMap[courseCode];\n  if (!prereqs || prereqs.length === 0) return true;\n  const andP = prereqs.filter(p => p.condition === 'AND' || p.condition === 'MANDATORY');\n  const orP = prereqs.filter(p => p.condition === 'OR');\n  for (const ap of andP) { if (!studentPassed[studentId].has(ap.prerequisite_code)) return false; }\n  if (orP.length > 0 && !orP.some(op => studentPassed[studentId].has(op.prerequisite_code))) return false;\n  return true;\n}\n\nconst courseRegistry = {};\nif (offeredCourses && typeof offeredCourses === 'object') {\n  for (const [program, courses] of Object.entries(offeredCourses)) {\n    if (!Array.isArray(courses)) continue;\n    for (const course of courses) {\n      const cc = course.course_code;\n      if (!courseRegistry[cc]) {\n        const hours = courseHours[cc] || {};\n        courseRegistry[cc] = { course_code: cc, course_name: course.course_name || '', credits: course.credits || 3, programs: {}, lec_hours: hours.lec || 0, tut_hours: hours.tut || 0, lab_hours: hours.lab || 0 };\n      }\n      const yearGroup = semToYear(course.semester_offered);\n      if (!courseRegistry[cc].programs[program]) courseRegistry[cc].programs[program] = new Set();\n      courseRegistry[cc].programs[program].add(yearGroup);\n    }\n  }\n}\n\nconst courseDemand = {};\nfor (const [cc, reg] of Object.entries(courseRegistry)) {\n  let demand = 0;\n  for (const sid of Object.keys(studentPassed)) {\n    const prog = studentProgram[sid];\n    if (reg.programs[prog] && isEligible(sid, cc)) demand++;\n  }\n  courseDemand[cc] = Math.max(demand, 1);\n}\n\nconst maxHallCap = halls.length > 0 ? halls[0].capacity : 120;\nconst maxLabCap = labs.length > 0 ? labs[0].capacity : 60;\nconst placementQueue = [];\n\nfor (const [cc, reg] of Object.entries(courseRegistry)) {\n  const demand = courseDemand[cc];\n  const lecSec = Math.ceil(demand / maxHallCap);\n  for (let s = 0; s < lecSec; s++) {\n    placementQueue.push({ course_code: cc, course_name: reg.course_name, credits: reg.credits, programs: reg.programs, component: 'LEC', sectionIndex: s, totalSections: lecSec, estimatedDemand: Math.ceil(demand / lecSec) });\n  }\n  if (reg.tut_hours > 0) {\n    const tutSec = Math.ceil(demand / maxHallCap);\n    for (let s = 0; s < tutSec; s++) {\n      placementQueue.push({ course_code: cc, course_name: reg.course_name, credits: reg.credits, programs: reg.programs, component: 'TUT', sectionIndex: s, totalSections: tutSec, estimatedDemand: Math.ceil(demand / tutSec) });\n    }\n  }\n  if (reg.lab_hours > 0) {\n    const labSec = Math.ceil(demand / maxLabCap);\n    for (let s = 0; s < labSec; s++) {\n      placementQueue.push({ course_code: cc, course_name: reg.course_name, credits: reg.credits, programs: reg.programs, component: 'LAB', sectionIndex: s, totalSections: labSec, estimatedDemand: Math.ceil(demand / labSec) });\n    }\n  }\n}\n\nplacementQueue.sort((a, b) => b.estimatedDemand - a.estimatedDemand);\n\nconst programYearSlots = {};\nconst roomSlots = {};\nDAYS.forEach(d => { PERIODS.forEach(p => { roomSlots[d + '_' + p] = new Set(); }); });\n\nfunction slotKey(day, period) { return day + '_' + period; }\nfunction getPYKeys(programs) {\n  const keys = [];\n  for (const [prog, yearSet] of Object.entries(programs)) {\n    for (const year of yearSet) keys.push(prog + '_' + year);\n  }\n  return keys;\n}\n\nconst schedule = [];\nconst alerts = [];\n\nfor (const section of placementQueue) {\n  const roomPool = section.component === 'LAB' ? labs : halls;\n  const pyKeys = getPYKeys(section.programs);\n  let placed = false;\n\n  for (const day of DAYS) {\n    if (placed) break;\n    for (const period of PERIODS) {\n      if (placed) break;\n      const sk = slotKey(day, period);\n      let conflict = false;\n      for (const pyk of pyKeys) {\n        if (!programYearSlots[pyk]) programYearSlots[pyk] = new Set();\n        if (programYearSlots[pyk].has(sk)) { conflict = true; break; }\n      }\n      if (conflict) continue;\n      for (const room of roomPool) {\n        if (!roomSlots[sk].has(room.room_id) && room.capacity >= section.estimatedDemand) {\n          roomSlots[sk].add(room.room_id);\n          for (const pyk of pyKeys) {\n            if (!programYearSlots[pyk]) programYearSlots[pyk] = new Set();\n            programYearSlots[pyk].add(sk);\n          }\n          for (const [prog] of Object.entries(section.programs)) {\n            schedule.push({ course_code: section.course_code, course_name: section.course_name, program_code: prog, section: section.component.charAt(0) + (section.sectionIndex + 1) + prog.charAt(0), component: section.component, day: day, period: period, room_id: room.room_id, capacity: room.capacity, enrolled: 0, instructor: null, term: term });\n          }\n          placed = true;\n          break;\n        }\n      }\n    }\n  }\n  if (!placed) {\n    alerts.push({ course_code: section.course_code, component: section.component, sectionIndex: section.sectionIndex, programs: Object.keys(section.programs), issue: 'NO_SLOT_AVAILABLE', message: 'Could not place ' + section.course_code + ' (' + section.component + ' section ' + (section.sectionIndex + 1) + ')' });\n  }\n}\n\n// Build INSERT SQL — writes as 'draft' status\nconst esc = (v) => { if (v == null) return 'NULL'; const s = String(v).trim(); if (s === '') return 'NULL'; return \"'\" + s.replace(/'/g, \"''\") + \"'\"; };\nlet insert_sql = 'SELECT 1;';\nif (schedule.length > 0) {\n  const vals = schedule.map(s => '(' + esc(s.course_code) + ', ' + esc(s.course_name) + ', ' + esc(s.program_code) + ', ' + esc(s.section) + ', ' + esc(s.component) + ', ' + esc(s.day) + ', ' + s.period + ', ' + esc(s.room_id) + ', ' + s.capacity + ', ' + s.enrolled + ', ' + (s.instructor ? esc(s.instructor) : 'NULL') + ', ' + esc(s.term) + ', ' + \"'draft'\" + ')').join(',\\n');\n  insert_sql = 'INSERT INTO generated_schedule (course_code, course_name, program_code, section, component, day, period, room_id, capacity, enrolled, instructor, term, status) VALUES\\n' + vals + ';';\n}\n\nconst progCounts = {};\nfor (const s of schedule) progCounts[s.program_code] = (progCounts[s.program_code] || 0) + 1;\n\nreturn [{ json: { schedule, alerts, total_placed: schedule.length, total_unique_courses: Object.keys(courseRegistry).length, total_unique_slots: new Set(schedule.map(s => s.day + '_' + s.period + '_' + s.room_id)).size, total_alerts: alerts.length, program_breakdown: progCounts, demand_matrix: courseDemand, insert_sql } }];"
+      },
+      "id": "b-csp-solver",
+      "name": "CSP Greedy Solver",
+      "position": [
+        1088,
+        304
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM generated_schedule WHERE status = 'draft';",
+        "options": {}
+      },
+      "id": "b-truncate-schedule",
+      "name": "Truncate Schedule",
+      "position": [
+        1344,
+        304
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $('CSP Greedy Solver').first().json.insert_sql }}",
+        "options": {}
+      },
+      "id": "b-insert-schedule",
+      "name": "Insert Schedule",
+      "position": [
+        1600,
+        304
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "TRUNCATE TABLE recommendation_cache;",
+        "options": {}
+      },
+      "id": "b-truncate-cache",
+      "name": "Truncate Cache",
+      "position": [
+        1872,
+        304
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'draft_generated', message: 'Schedule generated as DRAFT. Call POST /advisor/approve-schedule to finalize.', total_placed: $('CSP Greedy Solver').first().json.total_placed, total_alerts: $('CSP Greedy Solver').first().json.total_alerts, alerts: $('CSP Greedy Solver').first().json.alerts, program_breakdown: $('CSP Greedy Solver').first().json.program_breakdown } }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "b-respond",
+      "name": "Respond Schedule",
+      "position": [
+        2128,
+        304
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "content": "## 📅 Workflow B: Schedule Generator\n\n**POST /advisor/generate-schedule**\n\nAdvisor triggers schedule generation:\n1. Reads students + grades + study plans from Postgres\n2. Computes offered courses (ported from WF4)\n3. CSP Greedy Solver places courses into Day/Period/Room grid\n4. Writes schedule to `generated_schedule` table\n5. Invalidates recommendation cache",
+        "height": 384,
+        "width": 288
+      },
+      "id": "b-sticky",
+      "name": "Sticky Note",
+      "position": [
+        -384,
+        48
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT spe.program_code, spe.semester_number, spe.course_code, spe.credits, c.course_name, c.lec_hours, c.tut_hours, c.lab_hours FROM study_plan_entries spe LEFT JOIN courses c ON spe.course_code = c.course_code ORDER BY spe.program_code, spe.semester_number;",
+        "options": {}
+      },
+      "id": "b-read-studyplan",
+      "name": "Read Study Plan",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        288,
+        784
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT course_code, prerequisite_code, condition FROM prerequisites;",
+        "options": {}
+      },
+      "id": "b-read-prereqs",
+      "name": "Read Prerequisites",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        288,
+        944
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "advisor/approve-schedule",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b-approve-webhook",
+      "name": "Approve Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -32,
+        1232
+      ],
+      "webhookId": "3a2c070a-e692-4316-956c-42e48ebe5030",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM generated_schedule WHERE status = 'finalized'; UPDATE generated_schedule SET status = 'finalized' WHERE status = 'draft';",
+        "options": {}
+      },
+      "id": "b-finalize-schedule",
+      "name": "Finalize Schedule",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        192,
+        1232
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "TRUNCATE TABLE recommendation_cache;",
+        "options": {}
+      },
+      "id": "b-truncate-cache-approve",
+      "name": "Truncate Cache (Approve)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        416,
+        1232
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'finalized', message: 'Schedule approved and finalized. Recommendation cache cleared.' } }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "b-respond-approve",
+      "name": "Respond Approved",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        1232
+      ]
+    },
+    {
+      "parameters": {
+        "path": "advisor/view-schedule",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b-view-webhook",
+      "name": "View Schedule Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        768,
+        800
+      ],
+      "webhookId": "1d426fa3-0488-468c-bd16-28909feb9837",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT course_code, course_name, program_code, section, component, day, period, room_id, capacity, status FROM generated_schedule WHERE status IN ('draft','finalized') ORDER BY program_code, day, period;",
+        "options": {}
+      },
+      "id": "b-read-schedule",
+      "name": "Read Finalized Schedule",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1008,
+        800
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format schedule rows into a clean response for the UI\nconst rows = $input.all().map(i => i.json);\nconst program = $('View Schedule Webhook').first().json.query?.program || 'ALL';\n\nconst filtered = program === 'ALL' ? rows : rows.filter(r => r.program_code === program);\n\nreturn [{ json: {\n  schedule: filtered,\n  total: filtered.length,\n  programs: [...new Set(filtered.map(r => r.program_code))].sort(),\n  rooms: [...new Set(filtered.map(r => r.room_id))].sort()\n}}];"
+      },
+      "id": "b-format-schedule",
+      "name": "Format Schedule Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "b-respond-schedule",
+      "name": "Respond Schedule View",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1488,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "path": "admin/stats",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "b-stats-webhook",
+      "name": "Admin Stats Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -32,
+        1456
+      ],
+      "webhookId": "f83a9ee2-bbf0-49b4-a494-7f729a202ee7"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  (SELECT COUNT(*) FROM students) AS total_students,\n  (SELECT COUNT(DISTINCT course_code) FROM generated_schedule) AS total_courses,\n  (SELECT COUNT(DISTINCT room_id) FROM generated_schedule) AS total_rooms,\n  (SELECT COUNT(*) FROM generated_schedule) AS total_schedule_entries;",
+        "options": {}
+      },
+      "id": "b-query-stats",
+      "name": "Query Stats",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        192,
+        1456
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "b-respond-stats",
+      "name": "Respond Stats",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        416,
+        1456
+      ]
+    },
+    {
+      "parameters": {
+        "path": "advisor/slot-requests",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "b-slots-webhook",
+      "name": "Slot Requests Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -32,
+        1680
+      ],
+      "webhookId": "1bdf3499-9079-4e5f-ae15-6cd0de4b1e75"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT sr.id, sr.student_id, COALESCE(s.name, sr.student_id) AS student_name,\n  sr.course_code, COALESCE(c.course_name, sr.course_code) AS course_name,\n  sr.status, sr.created_at\nFROM slot_requests sr\nLEFT JOIN students s ON sr.student_id = s.student_id\nLEFT JOIN (SELECT DISTINCT course_code, course_name FROM generated_schedule) c\n  ON sr.course_code = c.course_code\nORDER BY sr.created_at DESC\nLIMIT 50;",
+        "options": {}
+      },
+      "id": "b-query-slots",
+      "name": "Query Slot Requests",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        192,
+        1680
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\nreturn [{ json: { slot_requests: rows, count: rows.length } }];"
+      },
+      "id": "b-format-slots",
+      "name": "Format Slot Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        1680
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "b-respond-slots",
+      "name": "Respond Slot Requests",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        1680
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Advisor Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Read Demand Data",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Read Constraints",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Read Electives",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Read Rooms",
+            "type": "main"
+          },
+          {
+            "node": "Read Study Plan",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Prerequisites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CSP Greedy Solver": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Truncate Schedule",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Compute Offered Courses": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "CSP Greedy Solver",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Insert Schedule": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Truncate Cache",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge All Inputs": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Compute Offered Courses",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Read Constraints": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge All Inputs",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Read Demand Data": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge All Inputs",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Read Electives": {
+      "main": [
+        [
+          {
+            "index": 2,
+            "node": "Merge All Inputs",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Read Rooms": {
+      "main": [
+        [
+          {
+            "index": 3,
+            "node": "Merge All Inputs",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Truncate Cache": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Respond Schedule",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Truncate Schedule": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Insert Schedule",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Read Study Plan": {
+      "main": [
+        [
+          {
+            "node": "Merge All Inputs",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Read Prerequisites": {
+      "main": [
+        [
+          {
+            "node": "Merge All Inputs",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Approve Webhook": {
+      "main": [
+        [
+          {
+            "node": "Finalize Schedule",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Schedule": {
+      "main": [
+        [
+          {
+            "node": "Truncate Cache (Approve)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Truncate Cache (Approve)": {
+      "main": [
+        [
+          {
+            "node": "Respond Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "View Schedule Webhook": {
+      "main": [
+        [
+          {
+            "node": "Read Finalized Schedule",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Finalized Schedule": {
+      "main": [
+        [
+          {
+            "node": "Format Schedule Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Schedule Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Schedule View",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Stats Webhook": {
+      "main": [
+        [
+          {
+            "node": "Query Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Stats": {
+      "main": [
+        [
+          {
+            "node": "Respond Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slot Requests Webhook": {
+      "main": [
+        [
+          {
+            "node": "Query Slot Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Slot Requests": {
+      "main": [
+        [
+          {
+            "node": "Format Slot Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Slot Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Slot Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "a111460e-b672-4d32-bd3f-1ea5f0cb2d81",
+  "meta": {
+    "instanceId": "edb31cd461cc0cd52f96c655be384d8bb4dce03eead801b1dae3667302fe7784"
+  },
+  "id": "4FTgq8BLFJITQVVo",
+  "tags": []
+}

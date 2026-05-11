@@ -1,0 +1,517 @@
+{
+  "name": "Project D: Vector Store Loader",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 📄 Workflow D: Vector Store Loader (pgvector)\n\nLoads university_policies.txt into **PostgreSQL pgvector** for persistent RAG retrieval.\n\n**Chunking Strategy:** Sub-section level (one chunk per rule like 1.1, 1.2, 2.3)\n- Produces **18 fine-grained chunks** instead of 7 coarse ones\n- Each chunk is a single policy rule with clear semantic identity\n- Metadata includes chunk_id, section name, and sub_section number\n\n**Steps:**\n1. Trigger Merge (Manual / Schedule / Webhook)\n2. Setup pgvector table (DROP + CREATE with HNSW index)\n3. Read policy file from n8n filesystem\n4. Split by sub-section numbers (Code node)\n5. Embed with mxbai-embed-large (Ollama)\n6. INSERT into PostgreSQL policy_chunks table\n\n⚡ Data persists across restarts — true RAG!"
+      },
+      "id": "d-sticky",
+      "name": "Sticky Note",
+      "position": [
+        -64,
+        64
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "d-manual-trigger",
+      "name": "Manual Trigger",
+      "position": [
+        -192,
+        352
+      ],
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "d-schedule-trigger",
+      "name": "Schedule Trigger (Daily Reload)",
+      "position": [
+        -160,
+        480
+      ],
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {},
+      "id": "d-trigger-merge",
+      "name": "Trigger Merge",
+      "position": [
+        224,
+        384
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "CREATE EXTENSION IF NOT EXISTS vector;\n\nDROP TABLE IF EXISTS policy_chunks;\n\nCREATE TABLE policy_chunks (\n  id bigserial primary key,\n  text text,\n  metadata jsonb,\n  embedding vector(1024)\n);\n\n-- HNSW can safely be created on an empty table\nCREATE INDEX IF NOT EXISTS policy_chunks_embedding_idx\n  ON policy_chunks USING hnsw (embedding vector_cosine_ops)\n  WITH (m = 16, ef_construction = 64);",
+        "options": {}
+      },
+      "id": "d-setup-pgvector",
+      "name": "Setup pgvector Table",
+      "position": [
+        448,
+        384
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fileSelector": "/home/node/.n8n-files/university_policies.txt",
+        "options": {}
+      },
+      "id": "d-read-policy",
+      "name": "Read Policy Document",
+      "position": [
+        608,
+        384
+      ],
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": "policy_chunks",
+        "options": {}
+      },
+      "id": "d-pgvector-insert",
+      "name": "PGVector Store (Insert)",
+      "position": [
+        1440,
+        -576
+      ],
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "d-data-loader",
+      "name": "Default Data Loader",
+      "position": [
+        1648,
+        -416
+      ],
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "model": "mxbai-embed-large:latest"
+      },
+      "id": "d-embeddings",
+      "name": "Ollama Embeddings",
+      "position": [
+        1456,
+        -400
+      ],
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "credentials": {
+        "ollamaApi": {
+          "id": "NcHHiskhR1QHrFRC",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin/reload-policies",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "d-webhook-trigger",
+      "name": "Admin Reload Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -192,
+        224
+      ],
+      "webhookId": "434b74b2-50bb-4979-b4dd-f1ce0bde8098"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawText = $input.first().json.data;\n\nif (!rawText) {\n  throw new Error('No text content found');\n}\n\nconst lines = rawText.split(/\\r?\\n/);\nconst chunks = [];\nlet currentChunkLines = [];\nlet currentSubSection = '';\n\nconst sectionNames = {\n  '1': 'Registration and Credit Hour Limits',\n  '2': 'Prerequisites and Course Offerings',\n  '3': 'Grading and Attendance',\n  '4': 'Graduation Requirements',\n  '5': 'Scheduling and Delivery Policies'\n};\n\nfor (const line of lines) {\n  const trimmed = line.trim();\n  if (!trimmed) continue;\n\n  const secMatch = trimmed.match(/^SECTION\\s+(\\d+):\\s*(.+)/i);\n  if (secMatch) {\n    if (currentSubSection && currentChunkLines.length > 0) {\n      const secNum = currentSubSection.split('.')[0];\n      chunks.push({\n        json: {\n          text: currentChunkLines.join(' '),\n          chunk_id: 'chunk_' + currentSubSection.replace('.', '_'),\n          section: sectionNames[secNum] || 'Section ' + secNum,\n          sub_section: currentSubSection\n        }\n      });\n    }\n    currentChunkLines = [];\n    currentSubSection = '';\n    continue;\n  }\n\n  const subMatch = trimmed.match(/^(\\d+\\.\\d+)\\s+(.+)/);\n  if (subMatch) {\n    if (currentSubSection && currentChunkLines.length > 0) {\n      const secNum = currentSubSection.split('.')[0];\n      chunks.push({\n        json: {\n          text: currentChunkLines.join(' '),\n          chunk_id: 'chunk_' + currentSubSection.replace('.', '_'),\n          section: sectionNames[secNum] || 'Section ' + secNum,\n          sub_section: currentSubSection\n        }\n      });\n    }\n    currentSubSection = subMatch[1];\n    currentChunkLines = [trimmed];\n  } else {\n    currentChunkLines.push(trimmed);\n  }\n}\n\nif (currentSubSection && currentChunkLines.length > 0) {\n  const secNum = currentSubSection.split('.')[0];\n  chunks.push({\n    json: {\n      text: currentChunkLines.join(' '),\n      chunk_id: 'chunk_' + currentSubSection.replace('.', '_'),\n      section: sectionNames[secNum] || 'Section ' + secNum,\n      sub_section: currentSubSection\n    }\n  });\n}\n\nreturn chunks;"
+      },
+      "id": "d-subsection-splitter",
+      "name": "Split By Sub-Section",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        768,
+        384
+      ],
+      "id": "1ff36045-5163-41bf-a847-21d26ee78aa9",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": "policy_chunks",
+        "options": {
+          "columnNames": {
+            "values": {}
+          }
+        }
+      },
+      "id": "cd557a1e-5e4b-4650-83cd-62f57184b53f",
+      "name": "PGVector Store (Insert)1",
+      "position": [
+        1248,
+        384
+      ],
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $('Split By Sub-Section').item.json.text }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "=chunk_id",
+                "value": "={{ $json.chunk_id }}"
+              },
+              {
+                "name": "section",
+                "value": "={{ $json.section }}"
+              },
+              {
+                "name": "sub_section",
+                "value": "={{ $json.sub_section }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "bca168ea-a714-4c2a-92d6-4c3cfd0010bb",
+      "name": "Default Data Loader1",
+      "position": [
+        1328,
+        560
+      ],
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "model": "mxbai-embed-large:latest"
+      },
+      "id": "f52c8f9c-2eb3-45eb-9be3-bea8d9babecc",
+      "name": "Ollama Embeddings1",
+      "position": [
+        1168,
+        560
+      ],
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "credentials": {
+        "ollamaApi": {
+          "id": "NcHHiskhR1QHrFRC",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field-data",
+              "name": "data",
+              "value": "SECTION 1: REGISTRATION AND CREDIT HOUR LIMITS\n1.1 Full-Time Status: A student must register for a minimum of 9 credit hours per regular semester (Fall and Spring) to maintain full-time enrollment status.\n1.2 Good Academic Standing: Students maintaining a Cumulative GPA of 2.16 or higher are considered in good academic standing and are permitted to register for a maximum of 18 credit hours per semester.\n1.3 Academic Warning: Students with a Cumulative GPA between 2.00 and 2.15 are placed on Academic Warning. To help stabilize their academic standing, these students are restricted to a maximum of 14 credit hours per semester.\n1.4 Academic Probation: Students whose Cumulative GPA falls below 2.00 are placed on strict Academic Probation. Students on probation are strictly limited to a maximum of 12 credit hours per semester until their GPA improves to 2.00 or higher.\n1.5 System Default Limit: In the absence of a specific GPA-band constraint being triggered, the university system enforces a hard default maximum of 18 credit hours per semester.\n\nSECTION 2: PREREQUISITES AND COURSE OFFERINGS\n2.1 Prerequisite Enforcement: Students are strictly prohibited from registering for any course unless they have successfully passed all required prerequisites. A grade of 'F' or 'FW' in a prerequisite course means the condition has not been met.\n2.2 Prerequisite Conditions: Prerequisite requirements are enforced according to specific logical conditions, which can be \"MANDATORY\" (a specific course must be passed), \"AND\" (all courses in a set must be passed), or \"OR\" (at least one course in a set must be passed).\n2.3 Standard Course Offerings: Courses are offered according to the standard sequence outlined in the official Academic Study Plan for each specific academic program.\n2.4 The Exception Rule for High Failure Rates: If a critical prerequisite course experiences a failure rate of more than 30 students in a single semester within a specific program, the Faculty Administration will automatically force that course to be offered in the immediately following term. This ensures students can repair their GPA and progress without falling behind.\n2.5 Cross-Program Registration: If a student fails a course, they are legally allowed to register for cross-program offerings of that previously failed course (offerings from outside their own academic program) to recover the credit.\n\nSECTION 3: GRADING AND ATTENDANCE\n3.1 Grading Scale: The Faculty of Computer Science and Engineering utilizes a standard letter grading system. Grades of A, B, C, and D are considered passing grades and earn academic credit. A grade of 'F' indicates a failure and earns zero credit hours.\n3.2 Additional Non-Passing Grades: In addition to 'F' and 'FW' grades, the grading system recognizes 'W' (Withdrawal) and 'U' (Unsatisfactory) as non-passing grades that do not satisfy course prerequisites or earn academic credit.\n3.3 Attendance Policy: Regular attendance in all assigned lectures, tutorials, and laboratory sessions is mandatory.\n3.4 Absence Limit (FW Grade): If a student's unexcused absences exceed 25% of the total contact hours for a specific course, the student will be barred from attending the final examination and will be awarded an 'FW' (Fail due to Withdrawal/Absence) grade. This carries the same GPA penalty as a standard 'F'.\n\nSECTION 4: GRADUATION REQUIREMENTS\n4.1 Degree Completion: To graduate with a Bachelor of Science degree, students must successfully pass all required core courses, university requirements, and elective groups as dictated by their specific program's study plan (e.g., Artificial Intelligence Engineering or Computer Science).\n4.2 Minimum GPA: A student must achieve a final Cumulative GPA of no less than 2.00 to be eligible for graduation.\n4.3 Field Training: All students must successfully complete the mandatory Summer Field Training requirements (e.g., Field Training 1 and 2) before they are permitted to register for their final Graduation Project.\n\nSECTION 5: SCHEDULING AND DELIVERY POLICIES (INFERRED)\n5.1 Schedule Conflicts: Students are not permitted to register for a combination of courses that share the exact same schedule day and time period.\n5.2 Exemption for Flexible Courses: Conflict detection does not apply to online courses or courses designated with a \"TBD\" time slot, allowing students to schedule them alongside fixed-time classes.\n5.3 University Requirement (UR) Format: All general University Requirement courses are delivered via an online format and are standardly assigned to Thursdays with flexible (TBD) time slots.\n",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "13b7c5c0-f79d-40ad-947c-f6d388864f29",
+      "name": "Policy Text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1280,
+        1664
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawText = $input.first().json.data;\n\nif (!rawText) {\n  throw new Error('No text content found');\n}\n\nconst lines = rawText.split(/\\r?\\n/);\nconst chunks = [];\nlet currentChunkLines = [];\nlet currentSubSection = '';\n\nconst sectionNames = {\n  '1': 'Registration and Credit Hour Limits',\n  '2': 'Prerequisites and Course Offerings',\n  '3': 'Grading and Attendance',\n  '4': 'Graduation Requirements',\n  '5': 'Scheduling and Delivery Policies'\n};\n\nfor (const line of lines) {\n  const trimmed = line.trim();\n  if (!trimmed) continue;\n\n  const secMatch = trimmed.match(/^SECTION\\s+(\\d+):\\s*(.+)/i);\n  if (secMatch) {\n    if (currentSubSection && currentChunkLines.length > 0) {\n      const secNum = currentSubSection.split('.')[0];\n      chunks.push({\n        json: {\n          text: currentChunkLines.join(' '),\n          chunk_id: 'chunk_' + currentSubSection.replace('.', '_'),\n          section: sectionNames[secNum] || 'Section ' + secNum,\n          sub_section: currentSubSection\n        }\n      });\n    }\n    currentChunkLines = [];\n    currentSubSection = '';\n    continue;\n  }\n\n  const subMatch = trimmed.match(/^(\\d+\\.\\d+)\\s+(.+)/);\n  if (subMatch) {\n    if (currentSubSection && currentChunkLines.length > 0) {\n      const secNum = currentSubSection.split('.')[0];\n      chunks.push({\n        json: {\n          text: currentChunkLines.join(' '),\n          chunk_id: 'chunk_' + currentSubSection.replace('.', '_'),\n          section: sectionNames[secNum] || 'Section ' + secNum,\n          sub_section: currentSubSection\n        }\n      });\n    }\n    currentSubSection = subMatch[1];\n    currentChunkLines = [trimmed];\n  } else {\n    currentChunkLines.push(trimmed);\n  }\n}\n\nif (currentSubSection && currentChunkLines.length > 0) {\n  const secNum = currentSubSection.split('.')[0];\n  chunks.push({\n    json: {\n      text: currentChunkLines.join(' '),\n      chunk_id: 'chunk_' + currentSubSection.replace('.', '_'),\n      section: sectionNames[secNum] || 'Section ' + secNum,\n      sub_section: currentSubSection\n    }\n  });\n}\n\nreturn chunks;"
+      },
+      "id": "ac80f5d6-0a0a-405f-a810-9090a3e29dd9",
+      "name": "Chunk Policy Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        1664
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:11434/api/embeddings",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "39acb6fe-dfe2-427a-a094-05ed4bbc36f0",
+      "name": "Get Embeddings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1520,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO policy_chunks (chunk_id, section, sub_section, text, embedding) VALUES ($1, $2, $3, $4, $5::vector)",
+        "options": {}
+      },
+      "id": "a20e280b-decc-4e96-ba01-a955cf37190c",
+      "name": "Insert to Postgres",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1728,
+        -192
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "index": 0,
+            "node": "PGVector Store (Insert)",
+            "type": "ai_document"
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Trigger Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Ollama Embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "index": 0,
+            "node": "PGVector Store (Insert)",
+            "type": "ai_embedding"
+          }
+        ]
+      ]
+    },
+    "Read Policy Document": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger (Daily Reload)": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Trigger Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Setup pgvector Table": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Read Policy Document",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Trigger Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Setup pgvector Table",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Admin Reload Webhook": {
+      "main": [
+        [
+          {
+            "node": "Trigger Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split By Sub-Section": {
+      "main": [
+        [
+          {
+            "node": "PGVector Store (Insert)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Split By Sub-Section",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader1": {
+      "ai_document": [
+        [
+          {
+            "node": "PGVector Store (Insert)1",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Embeddings1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "PGVector Store (Insert)1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Policy Text": {
+      "main": [
+        [
+          {
+            "node": "Chunk Policy Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk Policy Text": {
+      "main": [
+        []
+      ]
+    },
+    "Get Embeddings": {
+      "main": [
+        [
+          {
+            "node": "Insert to Postgres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "b2196e80-0b4d-4b54-8b98-77423c531d51",
+  "meta": {
+    "instanceId": "edb31cd461cc0cd52f96c655be384d8bb4dce03eead801b1dae3667302fe7784"
+  },
+  "id": "kQ1sEQoimXHte2K5",
+  "tags": []
+}

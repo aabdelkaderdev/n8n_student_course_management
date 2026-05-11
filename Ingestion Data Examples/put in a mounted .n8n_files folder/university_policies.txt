@@ -1,0 +1,29 @@
+SECTION 1: REGISTRATION AND CREDIT HOUR LIMITS
+1.1 Full-Time Status: A student must register for a minimum of 9 credit hours per regular semester (Fall and Spring) to maintain full-time enrollment status.
+1.2 Good Academic Standing: Students maintaining a Cumulative GPA of 2.16 or higher are considered in good academic standing and are permitted to register for a maximum of 18 credit hours per semester.
+1.3 Academic Warning: Students with a Cumulative GPA between 2.00 and 2.15 are placed on Academic Warning. To help stabilize their academic standing, these students are restricted to a maximum of 14 credit hours per semester.
+1.4 Academic Probation: Students whose Cumulative GPA falls below 2.00 are placed on strict Academic Probation. Students on probation are strictly limited to a maximum of 12 credit hours per semester until their GPA improves to 2.00 or higher.
+1.5 System Default Limit: In the absence of a specific GPA-band constraint being triggered, the university system enforces a hard default maximum of 18 credit hours per semester.
+
+SECTION 2: PREREQUISITES AND COURSE OFFERINGS
+2.1 Prerequisite Enforcement: Students are strictly prohibited from registering for any course unless they have successfully passed all required prerequisites. A grade of 'F' or 'FW' in a prerequisite course means the condition has not been met.
+2.2 Prerequisite Conditions: Prerequisite requirements are enforced according to specific logical conditions, which can be "MANDATORY" (a specific course must be passed), "AND" (all courses in a set must be passed), or "OR" (at least one course in a set must be passed).
+2.3 Standard Course Offerings: Courses are offered according to the standard sequence outlined in the official Academic Study Plan for each specific academic program.
+2.4 The Exception Rule for High Failure Rates: If a critical prerequisite course experiences a failure rate of more than 30 students in a single semester within a specific program, the Faculty Administration will automatically force that course to be offered in the immediately following term. This ensures students can repair their GPA and progress without falling behind.
+2.5 Cross-Program Registration: If a student fails a course, they are legally allowed to register for cross-program offerings of that previously failed course (offerings from outside their own academic program) to recover the credit.
+
+SECTION 3: GRADING AND ATTENDANCE
+3.1 Grading Scale: The Faculty of Computer Science and Engineering utilizes a standard letter grading system. Grades of A, B, C, and D are considered passing grades and earn academic credit. A grade of 'F' indicates a failure and earns zero credit hours.
+3.2 Additional Non-Passing Grades: In addition to 'F' and 'FW' grades, the grading system recognizes 'W' (Withdrawal) and 'U' (Unsatisfactory) as non-passing grades that do not satisfy course prerequisites or earn academic credit.
+3.3 Attendance Policy: Regular attendance in all assigned lectures, tutorials, and laboratory sessions is mandatory.
+3.4 Absence Limit (FW Grade): If a student's unexcused absences exceed 25% of the total contact hours for a specific course, the student will be barred from attending the final examination and will be awarded an 'FW' (Fail due to Withdrawal/Absence) grade. This carries the same GPA penalty as a standard 'F'.
+
+SECTION 4: GRADUATION REQUIREMENTS
+4.1 Degree Completion: To graduate with a Bachelor of Science degree, students must successfully pass all required core courses, university requirements, and elective groups as dictated by their specific program's study plan (e.g., Artificial Intelligence Engineering or Computer Science).
+4.2 Minimum GPA: A student must achieve a final Cumulative GPA of no less than 2.00 to be eligible for graduation.
+4.3 Field Training: All students must successfully complete the mandatory Summer Field Training requirements (e.g., Field Training 1 and 2) before they are permitted to register for their final Graduation Project.
+
+SECTION 5: SCHEDULING AND DELIVERY POLICIES (INFERRED)
+5.1 Schedule Conflicts: Students are not permitted to register for a combination of courses that share the exact same schedule day and time period.
+5.2 Exemption for Flexible Courses: Conflict detection does not apply to online courses or courses designated with a "TBD" time slot, allowing students to schedule them alongside fixed-time classes.
+5.3 University Requirement (UR) Format: All general University Requirement courses are delivered via an online format and are standardly assigned to Thursdays with flexible (TBD) time slots.

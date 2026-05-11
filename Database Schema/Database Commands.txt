@@ -1,0 +1,3 @@
+docker exec -it my-postgres psql -U postgres -d aiu_scheduling -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+cat schema.sql | docker exec -i my-postgres psql -U postgres -d aiu_scheduling

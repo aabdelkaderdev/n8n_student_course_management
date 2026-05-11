@@ -1,0 +1,399 @@
+{
+  "name": "Project: E: RAG Evaluation Benchmarks",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e-trigger",
+      "name": "Manual Trigger",
+      "position": [
+        0,
+        384
+      ],
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "eval-benchmarks",
+        "options": {}
+      },
+      "id": "e-webhook-trigger",
+      "name": "Webhook Trigger",
+      "position": [
+        0,
+        544
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "webhookId": "b39ccb66-160a-4994-914b-060fbbed1452"
+    },
+    {
+      "parameters": {
+        "content": "## RAG Evaluation Workflow — NDCG@3 Benchmark\n\n**Pipeline:** Load Test Cases → Split In Batches → PGVector Query (top 5) → Compute NDCG@3 → LLM Judge → Merge Scores → Collect → Export\n\n**Metrics:**\n- **NDCG@3:** Normalized Discounted Cumulative Gain (graded relevance 0-3)\n- **Hit Rate:** Was any highly-relevant chunk (grade ≥ 2) in top 5?\n- **Context Relevance:** LLM-as-a-Judge binary score (1=Yes, 0=No)\n\n**Test Cases:** 21 scenarios across 5 policy sections + cross-section queries\n**Vector Store:** PGVector `policy_chunks` table (18 sub-section chunks)\n**Embeddings:** Ollama mxbai-embed-large (with query prefix)\n**Judge LLM:** Groq llama-4-scout\n**Query Prefix:** Represent this sentence for searching relevant passages:",
+        "height": 280,
+        "width": 520
+      },
+      "id": "e-note",
+      "name": "Benchmarking Notes",
+      "position": [
+        0,
+        48
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "// 18 sub-section chunks: chunk_1_1 through chunk_5_3\n// Each maps to a specific sub-section of university_policies.txt\nconst testCases = [\n  {test_id:1, section:'Registration', difficulty:'easy', question:'What is the maximum credit hours for a student with a 2.10 GPA?', ground_truth:'14 credit hours per semester. Students with GPA between 2.00 and 2.15 are on Academic Warning and restricted to 14 credit hours.', ideal_grades:{chunk_1_1:1, chunk_1_2:0, chunk_1_3:3, chunk_1_4:1, chunk_1_5:1}},\n  {test_id:2, section:'Registration', difficulty:'easy', question:'What is the minimum credit hours required for full-time enrollment status?', ground_truth:'A minimum of 9 credit hours per regular semester (Fall and Spring).', ideal_grades:{chunk_1_1:3}},\n  {test_id:3, section:'Registration', difficulty:'medium', question:'If no specific GPA-band constraint is triggered, what is the default maximum credit limit?', ground_truth:'The system enforces a hard default maximum of 18 credit hours per semester.', ideal_grades:{chunk_1_5:3, chunk_1_2:1}},\n  {test_id:4, section:'Prerequisites', difficulty:'easy', question:'Can a student register for a course if they received an F in the prerequisite?', ground_truth:'No. An F or FW in a prerequisite means the condition has not been met and registration is prohibited.', ideal_grades:{chunk_2_1:3, chunk_2_2:1}},\n  {test_id:5, section:'Prerequisites', difficulty:'easy', question:'What does the AND prerequisite condition mean?', ground_truth:'AND means all courses in a set must be passed to satisfy the prerequisite.', ideal_grades:{chunk_2_2:3}},\n  {test_id:6, section:'Prerequisites', difficulty:'medium', question:'What happens if more than 30 students fail a critical prerequisite course in one semester?', ground_truth:'The Faculty Administration automatically forces that course to be offered in the immediately following term.', ideal_grades:{chunk_2_4:3, chunk_2_1:1}},\n  {test_id:7, section:'Prerequisites', difficulty:'easy', question:'Can a student who failed a course register for it from another program?', ground_truth:'Yes. Students are legally allowed to register for cross-program offerings of previously failed courses.', ideal_grades:{chunk_2_5:3, chunk_2_1:1}},\n  {test_id:8, section:'Grading', difficulty:'easy', question:'Which letter grades are considered passing and earn academic credit?', ground_truth:'Grades A, B, C, and D are passing. F indicates failure with zero credit hours.', ideal_grades:{chunk_3_1:3, chunk_3_2:1}},\n  {test_id:9, section:'Grading', difficulty:'easy', question:'What happens if a student misses more than 25% of contact hours?', ground_truth:'The student is barred from the final exam and awarded an FW grade with the same GPA penalty as F.', ideal_grades:{chunk_3_4:3, chunk_3_3:1}},\n  {test_id:10, section:'Grading', difficulty:'medium', question:'Does a W (Withdrawal) grade satisfy course prerequisites?', ground_truth:'No. W is a non-passing grade that does not satisfy prerequisites or earn credit.', ideal_grades:{chunk_3_2:3, chunk_2_1:1}},\n  {test_id:11, section:'Graduation', difficulty:'easy', question:'What minimum GPA is required for graduation?', ground_truth:'A final Cumulative GPA of no less than 2.00.', ideal_grades:{chunk_4_2:3, chunk_4_1:1}},\n  {test_id:12, section:'Graduation', difficulty:'easy', question:'What must be completed before registering for the Graduation Project?', ground_truth:'The mandatory Summer Field Training (Field Training 1 and 2).', ideal_grades:{chunk_4_3:3}},\n  {test_id:13, section:'Graduation', difficulty:'easy', question:'What are the requirements to graduate with a BS degree?', ground_truth:'Pass all core courses, university requirements, and elective groups per the study plan with minimum 2.00 GPA.', ideal_grades:{chunk_4_1:3, chunk_4_2:2}},\n  {test_id:14, section:'Scheduling', difficulty:'easy', question:'Can online courses be scheduled at the same time as fixed-time classes?', ground_truth:'Yes. Conflict detection does not apply to online courses or TBD time slots.', ideal_grades:{chunk_5_2:3, chunk_5_1:1}},\n  {test_id:15, section:'Scheduling', difficulty:'easy', question:'How are University Requirement courses delivered and scheduled?', ground_truth:'Via online format, assigned to Thursdays with flexible TBD time slots.', ideal_grades:{chunk_5_3:3}},\n  {test_id:16, section:'Scheduling', difficulty:'easy', question:'What rule prevents students from registering for conflicting courses?', ground_truth:'Students cannot register for courses sharing the exact same schedule day and time period.', ideal_grades:{chunk_5_1:3}},\n  {test_id:17, section:'Cross-Section', difficulty:'medium', question:'What is the difference between academic warning and academic probation?', ground_truth:'Warning is GPA 2.00-2.15 with 14 credit hour limit. Probation is GPA below 2.00 with 12 credit hour limit.', ideal_grades:{chunk_1_3:3, chunk_1_4:3}},\n  {test_id:18, section:'Cross-Section', difficulty:'hard', question:'What grade penalties exist for poor attendance versus course failure?', ground_truth:'Attendance >25% absence gives FW. Direct failure gives F. Both carry zero credit hours and same GPA penalty.', ideal_grades:{chunk_3_4:3, chunk_3_1:2}},\n  {test_id:19, section:'Cross-Section', difficulty:'medium', question:'List all non-passing grades recognized by the grading system.', ground_truth:'F (Failure), FW (Fail due to Withdrawal/Absence), W (Withdrawal), and U (Unsatisfactory).', ideal_grades:{chunk_3_2:3, chunk_3_1:2, chunk_3_4:1}},\n  {test_id:20, section:'Cross-Section', difficulty:'hard', question:'If a student on academic probation fails a prerequisite course, what options do they have?', ground_truth:'Limited to 12 credit hours, can register for cross-program offerings of the failed course. If 30+ students also failed, the course may be force-offered next term.', ideal_grades:{chunk_1_4:3, chunk_2_5:3, chunk_2_4:2, chunk_2_1:1}},\n  {test_id:21, section:'Cross-Section', difficulty:'hard', question:'Describe the complete academic lifecycle from enrollment through graduation.', ground_truth:'Maintain 9+ credit hours for full-time, pass prerequisites (A/B/C/D), complete core courses and electives, finish field training, achieve minimum 2.00 GPA.', ideal_grades:{chunk_1_1:2, chunk_2_1:2, chunk_4_1:3, chunk_4_3:1}}\n];\nreturn testCases.map(tc => ({json: tc}));"
+      },
+      "id": "e-read-csv",
+      "name": "Load Test Cases",
+      "position": [
+        240,
+        464
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "e-split",
+      "name": "Split In Batches",
+      "position": [
+        480,
+        464
+      ],
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "mode": "load",
+        "tableName": "policy_chunks",
+        "prompt": "={{ $json.question }}",
+        "topK": 5,
+        "options": {}
+      },
+      "id": "e-v-store",
+      "name": "PGVector Store",
+      "position": [
+        720,
+        464
+      ],
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.3,
+      "credentials": {
+        "postgres": {
+          "id": "BFZGAnmUbHhOfy6e",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "mxbai-embed-large:latest"
+      },
+      "id": "e-ol-embed",
+      "name": "Ollama Embeddings",
+      "position": [
+        720,
+        672
+      ],
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "credentials": {
+        "ollamaApi": {
+          "id": "NcHHiskhR1QHrFRC",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const testItem = $('Split In Batches').first().json;\nconst chunks = $input.all().map(item => {\n  // PGVector Store 'load' mode outputs: { document: { pageContent, metadata }, score }\n  const doc = item.json.document || {};\n  const text = (typeof doc === 'object' && doc.pageContent)\n    ? String(doc.pageContent)\n    : (typeof item.json.pageContent === 'string' ? item.json.pageContent : String(item.json.text || JSON.stringify(doc)));\n  const score = item.json.score || 0;\n  \n  // Try to get chunk_id from metadata first\n  let chunkId = 'unknown';\n  const metadata = (typeof doc === 'object' && doc.metadata) ? doc.metadata : (item.json.metadata || {});\n  if (metadata.chunk_id) {\n    chunkId = metadata.chunk_id;\n  } else {\n    chunkId = identifyChunk(text);\n  }\n  \n  return { text, score, chunkId };\n});\n\nfunction identifyChunk(text) {\n  const t = String(text || '').toLowerCase();\n  // Section 1: Registration\n  if (t.includes('1.1') && t.includes('full-time status')) return 'chunk_1_1';\n  if (t.includes('1.2') && t.includes('good academic standing')) return 'chunk_1_2';\n  if (t.includes('1.3') && t.includes('academic warning')) return 'chunk_1_3';\n  if (t.includes('1.4') && t.includes('academic probation')) return 'chunk_1_4';\n  if (t.includes('1.5') && t.includes('system default limit')) return 'chunk_1_5';\n  // Section 2: Prerequisites\n  if (t.includes('2.1') && t.includes('prerequisite enforcement')) return 'chunk_2_1';\n  if (t.includes('2.2') && t.includes('prerequisite conditions')) return 'chunk_2_2';\n  if (t.includes('2.3') && t.includes('standard course offerings')) return 'chunk_2_3';\n  if (t.includes('2.4') && t.includes('exception rule')) return 'chunk_2_4';\n  if (t.includes('2.5') && t.includes('cross-program')) return 'chunk_2_5';\n  // Section 3: Grading\n  if (t.includes('3.1') && t.includes('grading scale')) return 'chunk_3_1';\n  if (t.includes('3.2') && t.includes('non-passing')) return 'chunk_3_2';\n  if (t.includes('3.3') && t.includes('attendance policy')) return 'chunk_3_3';\n  if (t.includes('3.4') && t.includes('absence limit')) return 'chunk_3_4';\n  // Section 4: Graduation\n  if (t.includes('4.1') && t.includes('degree completion')) return 'chunk_4_1';\n  if (t.includes('4.2') && t.includes('minimum gpa')) return 'chunk_4_2';\n  if (t.includes('4.3') && t.includes('field training')) return 'chunk_4_3';\n  // Section 5: Scheduling\n  if (t.includes('5.1') && t.includes('schedule conflicts')) return 'chunk_5_1';\n  if (t.includes('5.2') && t.includes('exemption')) return 'chunk_5_2';\n  if (t.includes('5.3') && t.includes('university requirement')) return 'chunk_5_3';\n  return 'unknown';\n}\n\nconst idealGrades = testItem.ideal_grades || {};\nconst retrievedGrades = chunks.map(c => {\n  return idealGrades[c.chunkId] || 0;\n});\n\nfunction computeDCG(rels) {\n  return rels.reduce((sum, rel, i) => sum + (Math.pow(2, rel) - 1) / Math.log2(i + 2), 0);\n}\n\nconst topK = chunks.length;\nconst allIdealGrades = Object.values(idealGrades).sort((a, b) => b - a).slice(0, topK);\nconst dcg = computeDCG(retrievedGrades);\nconst idcg = computeDCG(allIdealGrades);\nconst ndcg = idcg === 0 ? 0 : Math.round((dcg / idcg) * 10000) / 10000;\nconst hitRate = retrievedGrades.some(g => g >= 2) ? 1 : 0;\n\nreturn [{json: {\n  ...testItem,\n  retrieved_chunks: chunks.map((c, i) => ({text: c.text.substring(0, 200), chunk_id: c.chunkId, relevance_grade: retrievedGrades[i], score: c.score})),\n  ndcg_at_3: ndcg,\n  dcg: Math.round(dcg * 10000) / 10000,\n  idcg: Math.round(idcg * 10000) / 10000,\n  hit_rate: hitRate,\n  retrieved_grades: retrievedGrades,\n  chunks_retrieved: chunks.length\n}}];"
+      },
+      "id": "e-metrics",
+      "name": "Compute NDCG@3",
+      "position": [
+        1024,
+        464
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an evaluation judge for a RAG (Retrieval-Augmented Generation) system.\n\nStudent Question: {{ $json.question }}\nGround Truth Answer: {{ $json.ground_truth }}\n\nRetrieved Context:\n{{ $json.retrieved_chunks.map(c => c.text).join('\\n---\\n') }}\n\nDoes the Retrieved Context contain sufficient information to correctly answer the Student Question based on the Ground Truth?\nFocus strictly on whether the context contains the key facts from the Ground Truth.\nOutput ONLY a JSON object with context_relevance (1 for Yes, 0 for No).",
+        "hasOutputParser": true
+      },
+      "id": "e-llm-chain",
+      "name": "Basic LLM Chain",
+      "position": [
+        1648,
+        464
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+        "options": {}
+      },
+      "id": "e-groq",
+      "name": "Groq Chat Model",
+      "position": [
+        1648,
+        672
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "credentials": {
+        "groqApi": {
+          "id": "u3HaM0Tj65Nai5fI",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"context_relevance\": {\n      \"type\": \"number\",\n      \"enum\": [0, 1]\n    }\n  },\n  \"required\": [\"context_relevance\"]\n}"
+      },
+      "id": "e-parser",
+      "name": "Output Parser",
+      "position": [
+        1808,
+        672
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "jsCode": "const metricsItem = $('Compute NDCG@3').first().json;\nconst llmScore = $input.first().json.context_relevance || 0;\nreturn [{json: {...metricsItem, context_relevance: llmScore}}];"
+      },
+      "id": "e-format-judge",
+      "name": "Merge Scores",
+      "position": [
+        1888,
+        464
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nreturn [{json: item}];"
+      },
+      "id": "e-collect",
+      "name": "Collect Results",
+      "position": [
+        2128,
+        464
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = items.map(i => i.json);\nconst n = results.length;\n\nconst avgNDCG = results.reduce((s, r) => s + (r.ndcg_at_3 || 0), 0) / n;\nconst avgHitRate = results.reduce((s, r) => s + (r.hit_rate || 0), 0) / n;\nconst avgRelevance = results.reduce((s, r) => s + (r.context_relevance || 0), 0) / n;\n\nconst ndcgValues = results.map(r => r.ndcg_at_3 || 0).sort((a, b) => a - b);\nconst medianNDCG = n % 2 === 0 ? (ndcgValues[n/2-1] + ndcgValues[n/2]) / 2 : ndcgValues[Math.floor(n/2)];\nconst minNDCG = ndcgValues[0];\nconst maxNDCG = ndcgValues[n - 1];\n\nconst sections = {};\nresults.forEach(r => {\n  const sec = r.section || 'Unknown';\n  if (!sections[sec]) sections[sec] = {count: 0, ndcg_sum: 0, hit_sum: 0, rel_sum: 0};\n  sections[sec].count++;\n  sections[sec].ndcg_sum += r.ndcg_at_3 || 0;\n  sections[sec].hit_sum += r.hit_rate || 0;\n  sections[sec].rel_sum += r.context_relevance || 0;\n});\nconst sectionBreakdown = {};\nfor (const [sec, data] of Object.entries(sections)) {\n  sectionBreakdown[sec] = {\n    count: data.count,\n    avg_ndcg: Math.round((data.ndcg_sum / data.count) * 10000) / 10000,\n    avg_hit_rate: Math.round((data.hit_sum / data.count) * 10000) / 10000,\n    avg_context_relevance: Math.round((data.rel_sum / data.count) * 10000) / 10000\n  };\n}\n\nlet csv = 'test_id,section,difficulty,question,ground_truth,ndcg_at_3,hit_rate,context_relevance\\n';\nresults.forEach(r => {\n  csv += `${r.test_id},\"${(r.section||'').replace(/\"/g,'\"\"')}\",\"${r.difficulty||''}\",\"${(r.question||'').replace(/\"/g,'\"\"')}\",\"${(r.ground_truth||'').replace(/\"/g,'\"\"')}\",${r.ndcg_at_3},${r.hit_rate},${r.context_relevance}\\n`;\n});\n\nreturn [{json: {\n  total_tests: n,\n  overall_ndcg_at_3: Math.round(avgNDCG * 10000) / 10000,\n  overall_hit_rate: Math.round(avgHitRate * 10000) / 10000,\n  overall_context_relevance: Math.round(avgRelevance * 10000) / 10000,\n  ndcg_stats: {mean: Math.round(avgNDCG*10000)/10000, median: Math.round(medianNDCG*10000)/10000, min: Math.round(minNDCG*10000)/10000, max: Math.round(maxNDCG*10000)/10000},\n  section_breakdown: sectionBreakdown,\n  csv_output: csv,\n  individual_results: results,\n  summary: `RAG Evaluation (NDCG@3): ${n} tests | NDCG@3: ${(avgNDCG*100).toFixed(1)}% | Hit Rate: ${(avgHitRate*100).toFixed(1)}% | Context Relevance: ${(avgRelevance*100).toFixed(1)}%`\n}}];"
+      },
+      "id": "e-export",
+      "name": "Export Results",
+      "position": [
+        816,
+        224
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1296,
+        464
+      ],
+      "id": "88e3dfea-929c-4eae-b9a3-6c437814dd86",
+      "name": "Wait",
+      "webhookId": "7b7ee64f-1632-4988-a82d-f200a863b37f"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge Scores",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Collect Results": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute NDCG@3": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Test Cases": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Split In Batches",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Load Test Cases",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge Scores": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Collect Results",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Ollama Embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "index": 0,
+            "node": "PGVector Store",
+            "type": "ai_embedding"
+          }
+        ]
+      ]
+    },
+    "Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser"
+          }
+        ]
+      ]
+    },
+    "PGVector Store": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Compute NDCG@3",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Export Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PGVector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Load Test Cases",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Export Results": {
+      "main": [
+        []
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "462da552-ace8-40ec-a34a-ba3defb09931",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "edb31cd461cc0cd52f96c655be384d8bb4dce03eead801b1dae3667302fe7784"
+  },
+  "id": "GyiU03G3Ba4AA7pD",
+  "tags": []
+}

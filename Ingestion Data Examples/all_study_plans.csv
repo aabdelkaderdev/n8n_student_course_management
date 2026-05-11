@@ -1,0 +1,209 @@
+Program,Semester,Course Code,Course Name,Lec,Tut,Lab,Other,Contact Hours,Credits,Total Marks,ECTS
+AIE,1,MAT111,Mathematics I,3,0,1,0,4,3,150,6
+AIE,1,MAT123,Mechanics,2,2,0,0,4,3,150,6
+AIE,1,MEC011,Engineering Drawing (1),2,0,3,0,5,3,135,4
+AIE,1,PHY212,Introduction to Engineering Physics,2,2,0,0,4,3,150,6
+AIE,1,CSE014,Structured Programming,2,3,0,0,5,3,180,6
+AIE,1,UC1,University Requirement (1),2,0,0,0,2,2,90,4
+AIE,2,MAT112,Mathematics II,3,0,1,0,4,3,150,6
+AIE,2,MAT131,Probability & Statistics I,2,1,2,0,5,3,195,6
+AIE,2,CSE015,Object Oriented Programming,2,3,0,0,5,3,180,6
+AIE,2,CSE315,Discrete Mathematics,2,0,2,0,4,3,150,6
+AIE,2,UC2,University Requirement (2),2,0,0,0,2,2,90,4
+AIE,2,UC3,University Requirement (3),2,0,0,0,2,2,90,4
+AIE,2,MAT212,Linear Algebra,2,0,2,0,4,3,150,6
+AIE,3,CSE111,Data Structures,2,3,0,0,5,3,180,6
+AIE,3,CSE113,Electric & Electronic Circuits 1,1,3,2,0,6,3,180,6
+AIE,3,CSE131,Logic Design,2,2,2,0,6,3,195,6
+AIE,3,UC4,University Requirement (4),2,0,0,0,2,2,90,4
+AIE,3,UC5,University Requirement (5),2,0,0,0,2,2,90,4
+AIE,4,MAT231,Probability & Statistics II,2,2,1,0,5,3,195,6
+AIE,4,MAT312,Differential Equations,2,0,2,0,4,3,150,6
+AIE,4,CSE132,Computer Architecture & Organization,2,2,1,0,5,3,165,6
+AIE,4,AIE111,Artificial Intelligence,2,2,1,0,5,3,180,6
+AIE,4,E1,Elective Course (1),2,2,1,0,5,3,180,6
+AIE,5,E2,Elective Course (2),2,2,1,0,5,3,180,6
+AIE,5,CSE221,Database Systems,2,2,1,0,5,3,180,6
+AIE,5,CSE233,Operating Systems,2,2,1,0,5,3,165,6
+AIE,5,AIE121,Machine Learning,2,2,1,0,5,3,180,6
+AIE,5,AIE291,Field Training 1 in Artificial Intelligence Engineering,2,0,0,0,2,2,60,4
+AIE,5,UE1,Elective University (1),2,0,0,0,2,2,90,4
+AIE,6,CSE112,Design & Analysis of Algorithms,3,0,3,0,6,4,195,8
+AIE,6,CSE251,Software Engineering,2,2,1,0,5,3,180,6
+AIE,6,CSE261,Computer Networks,2,2,1,0,5,3,165,6
+AIE,6,CSE281,Image Processing,2,2,1,0,5,3,180,6
+AIE,6,CSE234,Embedded Systems,2,2,1,0,5,3,180,6
+AIE,7,ELE432,Digital Signal Processing,2,1,1,0,4,3,150,6
+AIE,7,CSE363,Cloud Computing,2,2,1,0,5,3,180,6
+AIE,7,CSE344,Introduction to Cyber Security,2,2,1,0,5,3,180,6
+AIE,7,AIE241,Natural Language Processing,2,2,1,0,5,3,180,6
+AIE,7,AIE323,Data Mining,2,2,1,0,5,3,180,6
+AIE,7,UE2,Elective University (2),2,0,0,0,2,2,90,4
+AIE,8,CSE383,Computer Vision,2,2,1,0,5,3,180,6
+AIE,8,AIE212,Knowledge-Based Systems,2,2,1,0,5,3,180,6
+AIE,8,AIE213,Optimization Techniques,3,0,3,0,6,3,180,6
+AIE,8,AIE231,Neural Networks,2,2,1,0,5,3,180,6
+AIE,8,AIE392,Field Training 2 in Artificial Intelligence Engineering,2,0,0,0,2,2,60,4
+AIE,8,UC6,University Requirement (6),2,0,0,0,2,2,90,4
+AIE,9,E3,Elective Course (3),2,2,1,0,5,3,180,6
+AIE,9,E4,Elective Course (4),2,2,1,0,5,3,180,6
+AIE,9,AIE351,Robotics Design,2,2,1,0,5,3,180,6
+AIE,9,AIE493,Graduation Project 1,2,3,0,0,5,3,180,6
+AIE,9,UC7,University Requirement (7),2,0,0,0,2,2,90,4
+AIE,10,E5,Elective Course (5),2,2,1,0,5,3,180,6
+AIE,10,E6,Elective Course (6),2,2,1,0,5,3,180,6
+AIE,10,AIE332,Deep Learning,2,2,1,0,5,3,180,6
+AIE,10,AIE494,Graduation Project 2,2,3,0,0,5,3,180,6
+AIE,10,UE3,Elective University (3),2,0,0,0,2,2,90,4
+AIS,1,MAT111,Mathematics I,3,0,1,0,4,3,150,6
+AIS,1,PHY211,Physics II,2,2,0,0,4,3,150,6
+AIS,1,CSE014,Structured Programming,2,3,0,0,5,3,180,6
+AIS,1,UC1,University Requirement (1),2,0,0,0,2,2,90,4
+AIS,1,UC2,University Requirement (2),2,0,0,0,2,2,90,4
+AIS,1,UE1,Elective University (1),2,0,0,0,2,2,90,4
+AIS,2,MAT112,Mathematics II,3,0,1,0,4,3,150,6
+AIS,2,MAT131,Probability & Statistics I,2,1,2,0,5,3,195,6
+AIS,2,CSE015,Object Oriented Programming,2,3,0,0,5,3,180,6
+AIS,2,CSE315,Discrete Mathematics,2,0,2,0,4,3,150,6
+AIS,2,UC3,University Requirement (3),2,0,0,0,2,2,90,4
+AIS,2,UE2,Elective University (2),2,0,0,0,2,2,90,4
+AIS,3,MAT212,Linear Algebra,2,2,0,0,4,3,150,6
+AIS,3,MAT231,Probability & Statistics II,2,2,1,0,5,3,195,6
+AIS,3,CSE111,Data Structures,2,3,0,0,5,3,180,6
+AIS,3,CSE131,Logic Design,2,2,2,0,6,3,195,6
+AIS,3,AIE111,Artificial Intelligence,2,2,1,0,5,3,180,6
+AIS,3,UC4,University Requirement (4),2,0,0,0,2,2,90,4
+AIS,4,MAT312,Differential Equations,2,0,2,0,4,3,150,6
+AIS,4,CSE132,Computer Architecture & Organization,2,2,1,0,5,3,165,6
+AIS,4,CSE221,Database Systems,2,2,1,0,5,3,180,6
+AIS,4,CSE281,Image Processing,2,2,1,0,5,3,180,6
+AIS,4,AIE121,Machine Learning,2,2,1,0,5,3,180,6
+AIS,4,AIE191,Field Training 1 in AI Science,2,0,0,0,2,2,60,4
+AIS,5,CSE233,Operating Systems,2,2,1,0,5,3,165,6
+AIS,5,CSE251,Software Engineering,2,2,1,0,5,3,180,6
+AIS,5,CSE261,Computer Networks,2,2,1,0,5,3,165,6
+AIS,5,AIE231,Neural Networks,2,2,1,0,5,3,180,6
+AIS,5,AIE323,Data Mining,2,2,1,0,5,3,180,6
+AIS,5,UC5,University Requirement (5),2,0,0,0,2,2,90,4
+AIS,6,CSE112,Design & Analysis of Algorithms,3,0,3,0,6,4,195,8
+AIS,6,AIE212,Knowledge-Based Systems,2,2,1,0,5,3,180,6
+AIS,6,AIE213,Optimization Techniques,3,0,3,0,6,3,180,6
+AIS,6,AIE241,Natural Language Processing,2,2,1,0,5,3,180,6
+AIS,6,AIE292,Field Training 2 in AI Science,2,0,0,0,2,2,60,4
+AIS,6,E1,Elective Course (1),2,2,1,0,5,3,180,6
+AIS,7,CSE363,Cloud Computing,2,2,1,0,5,3,180,6
+AIS,7,AIE322,Advanced Machine Learning,2,2,1,0,5,3,180,6
+AIS,7,AIE332,Deep Learning,2,2,1,0,5,3,180,6
+AIS,7,AIE493,Graduation Project 1,2,3,0,0,5,3,180,6
+AIS,7,E2,Elective Course (2),2,2,1,0,5,3,180,6
+AIS,7,UC6,University Requirement (6),2,0,0,0,2,2,90,4
+AIS,8,AIE425,Intelligent Recommender Systems,2,2,1,0,5,3,180,6
+AIS,8,AIE314,AI-Based Programming,2,2,1,0,5,3,180,6
+AIS,8,AIE494,Graduation Project 2,2,3,0,0,5,3,180,6
+AIS,8,E3,Elective Course (3),2,2,1,0,5,3,180,6
+AIS,8,UC7,University Requirement (7),2,0,0,0,2,2,90,4
+AIS,8,UE3,Elective University (3),2,0,0,0,2,2,90,4
+CS,1,MAT111,Mathematics I,3,0,1,0,4,3,150,6
+CS,1,PHY211,Physics II,2,2,0,0,4,3,150,6
+CS,1,CSE014,Structured Programming,2,3,0,0,5,3,180,6
+CS,1,UC1,University Requirement (1),2,0,0,0,2,2,90,4
+CS,1,UC2,University Requirement (2),2,0,0,0,2,2,90,4
+CS,1,UE1,Elective University (1),2,0,0,0,2,2,90,4
+CS,2,MAT112,Mathematics II,3,0,1,0,4,3,150,6
+CS,2,MAT131,Probability & Statistics I,2,1,2,0,5,3,195,6
+CS,2,CSE015,Object Oriented Programming,2,3,0,0,5,3,180,6
+CS,2,CSE315,Discrete Mathematics,2,0,2,0,4,3,150,6
+CS,2,UC3,University Requirement (3),2,0,0,0,2,2,90,4
+CS,2,UE2,Elective University (2),2,0,0,0,2,2,90,4
+CS,3,MAT212,Linear Algebra,2,2,0,0,4,3,150,6
+CS,3,MAT231,Probability & Statistics II,2,2,1,0,5,3,195,6
+CS,3,CSE111,Data Structures,2,3,0,0,5,3,180,6
+CS,3,CSE131,Logic Design,2,2,2,0,6,3,195,6
+CS,3,AIE111,Artificial Intelligence,2,2,1,0,5,3,180,6
+CS,3,UC4,University Requirement (4),2,0,0,0,2,2,90,4
+CS,4,MAT312,Differential Equations,2,0,2,0,4,3,150,6
+CS,4,CSE132,Computer Architecture & Organization,2,2,1,0,5,3,165,6
+CS,4,CSE211,Web Programming,2,2,1,0,5,3,165,6
+CS,4,CSE221,Database Systems,2,2,1,0,5,3,180,6
+CS,4,CSE191,Field Training 1 in Computer Science,2,0,0,0,2,2,60,4
+CS,4,CSE251,Software Engineering,2,2,1,0,5,3,180,6
+CS,5,CSE233,Operating Systems,2,2,1,0,5,3,165,6
+CS,5,E1,Elective Course (1),2,2,1,0,5,3,180,6
+CS,5,CSE261,Computer Networks,2,2,1,0,5,3,165,6
+CS,5,AIE121,Machine Learning,2,2,1,0,5,3,180,6
+CS,5,CSE352,Systems Analysis & Design,2,2,1,0,5,3,165,6
+CS,5,UC5,University Requirement (5),2,0,0,0,2,2,90,4
+CS,6,CSE112,Design & Analysis of Algorithms,3,0,3,0,6,4,195,8
+CS,6,CSE241,Security of Information Systems,2,2,1,0,5,3,150,6
+CS,6,CSE323,Advanced Database Systems,2,2,1,0,5,3,180,6
+CS,6,E2,Elective Course (2),2,2,1,0,5,3,180,6
+CS,6,CSE292,Field Training 2 in Computer Science,2,0,0,0,2,2,60,4
+CS,6,UC6,University Requirement (6),2,0,0,0,2,2,90,4
+CS,7,CSE363,Cloud Computing,2,2,1,0,5,3,180,6
+CS,7,CSE454,Advanced Software Engineering,2,2,1,0,5,3,180,6
+CS,7,AIE323,Data Mining,2,2,1,0,5,3,180,6
+CS,7,CSE493,Graduation Project 1,2,3,0,0,5,3,180,6
+CS,7,UC7,University Requirement (7),2,0,0,0,2,2,90,4
+CS,7,E3,Elective Course (3),2,2,1,0,5,3,180,6
+CS,8,CSE411,Theory of Computation & Compilers,2,2,1,0,5,3,180,6
+CS,8,CSE474,Distributed Information Systems,2,2,1,0,5,3,180,6
+CS,8,CSE494,Graduation Project 2,2,3,0,0,5,3,180,6
+CS,8,E4,Elective Course (4),2,2,1,0,5,3,180,6
+CS,8,E5,Elective Course (5),2,2,1,0,5,3,180,6
+CS,8,UE3,Elective University (3),2,0,0,0,2,2,90,4
+CE,1,MAT111,Mathematics I,3,0,1,0,4,3,150,6
+CE,1,MAT123,Mechanics,2,2,0,0,4,3,150,6
+CE,1,MEC011,Engineering Drawing (1),2,0,3,0,5,3,135,4
+CE,1,PHY212,Introduction to Engineering Physics,2,2,0,0,4,3,150,6
+CE,1,CSE014,Structured Programming,2,3,0,0,5,3,180,6
+CE,1,UC1,University Requirement (1),2,0,0,0,2,2,90,4
+CE,2,MAT112,Mathematics II,3,0,1,0,4,3,150,6
+CE,2,MAT131,Probability & Statistics I,2,1,2,0,5,3,195,6
+CE,2,CSE015,Object Oriented Programming,2,3,0,0,5,3,180,6
+CE,2,CSE315,Discrete Mathematics,2,0,2,0,4,3,150,6
+CE,2,UC2,University Requirement (2),2,0,0,0,2,2,90,4
+CE,2,UC3,University Requirement (3),2,0,0,0,2,2,90,4
+CE,3,MAT212,Linear Algebra,2,0,2,0,4,3,150,6
+CE,3,CSE111,Data Structures,2,3,0,0,5,3,180,6
+CE,3,CSE113,Electric & Electronic Circuits 1,1,3,2,0,6,3,180,6
+CE,3,CSE131,Logic Design,2,2,2,0,6,3,195,6
+CE,3,UC4,University Requirement (4),2,0,0,0,2,2,90,4
+CE,3,UC5,University Requirement (5),2,0,0,0,2,2,90,4
+CE,4,MAT231,Probability & Statistics II,2,2,1,0,5,3,195,6
+CE,4,MAT312,Differential Equations,2,0,2,0,4,3,150,6
+CE,4,CSE132,Computer Architecture & Organization,2,2,1,0,5,3,165,6
+CE,4,AIE111,Artificial Intelligence,2,2,1,0,5,3,180,6
+CE,4,E1,Elective Course (1),2,2,1,0,5,3,180,6
+CE,5,E2,Elective Course (2),2,2,1,0,5,3,180,6
+CE,5,CSE221,Database Systems,2,2,1,0,5,3,180,6
+CE,5,CSE233,Operating Systems,2,2,1,0,5,3,165,6
+CE,5,AIE121,Machine Learning,2,2,1,0,5,3,180,6
+CE,5,CSE291,Field Training 1 in Computer Engineering,2,0,0,0,2,2,60,4
+CE,5,UE1,Elective University (1),2,0,0,0,2,2,90,4
+CE,6,CSE112,Design & Analysis of Algorithms,3,0,3,0,6,4,195,8
+CE,6,CSE211,Web Programming,2,2,1,0,5,3,165,6
+CE,6,CSE251,Software Engineering,2,2,1,0,5,3,180,6
+CE,6,CSE261,Computer Networks,2,2,1,0,5,3,165,6
+CE,6,CSE234,Embedded Systems,2,2,1,0,5,3,180,6
+CE,7,ELE432,Digital Signal Processing,2,1,1,0,4,3,150,6
+CE,7,CSE241,Security of Information Systems,2,2,1,0,5,3,150,6
+CE,7,CSE242,Cryptography,2,1,2,0,5,3,180,6
+CE,7,CSE363,Cloud Computing,2,2,1,0,5,3,180,6
+CE,7,CSE344,Introduction to Cyber Security,2,2,1,0,5,3,180,6
+CE,7,UE2,Elective University (2),2,0,0,0,2,2,90,4
+CE,8,CSE243,Secure Programming,2,3,0,0,5,3,180,6
+CE,8,CSE373,Parallel Programming,2,2,1,0,5,3,180,6
+CE,8,CSE446,Information & Computer Networks Security,2,2,1,0,5,3,180,6
+CE,8,CSE464,Internet of things,2,2,1,0,5,3,180,6
+CE,8,CSE392,Field Training 2 in Computer Engineering,2,0,0,0,2,2,60,4
+CE,8,UC6,University Requirement (6),2,0,0,0,2,2,90,4
+CE,9,E3,Elective Course (3),2,2,1,0,5,3,180,6
+CE,9,E4,Elective Course (4),2,2,1,0,5,3,180,6
+CE,9,CSE445,Selected Topics in Information Security,2,2,1,0,5,3,180,6
+CE,9,CSE493,Graduation Project 1,2,3,0,0,5,3,180,6
+CE,9,UC7,University Requirement (7),2,0,0,0,2,2,90,4
+CE,10,E5,Elective Course (5),2,2,1,0,5,3,180,6
+CE,10,E6,Elective Course (6),2,2,1,0,5,3,180,6
+CE,10,CSE447,Selected Topics in Computer Security,2,2,1,0,5,3,180,6
+CE,10,CSE494,Graduation Project 2,2,3,0,0,5,3,180,6
+CE,10,UE3,Elective University (3),2,0,0,0,2,2,90,4

@@ -1,0 +1,116 @@
+Program,Elective Group,Course Code,Course Name
+AIE,E1,CHE142,Engineering Chemistry
+AIE,E1,MAT121,Dynamics
+AIE,E1,MAT122,Statics
+AIE,E1,MAT315,Numerical Analysis
+AIE,E1,PHY211,Physics II
+AIE,E2,ELE115,Electrical Circuits & Measurements
+AIE,E2,ELE215,Electronics & Digital Circuits
+AIE,E2,ELE232,Fundamentals of Communication Systems
+AIE,E2,ELE233,Automatic Control Systems
+AIE,E2,ELE338,Wireless Communication Networks
+AIE,E3,CSE211,Web Programming
+AIE,E3,CSE271,Introduction to Parallel Computing
+AIE,E3,CSE272,Parallel & Distributed Systems
+AIE,E3,CSE322,Big Data Analytics 1
+AIE,E3,CSE363,Cloud Computing
+AIE,E3,CSE344,Introduction to Cyber Security
+AIE,E3,CSE382,Computer Graphics
+AIE,E4,CSE335,Real Time & Embedded Systems Design
+AIE,E4,CSE446,Information & Computer Networks Security
+AIE,E4,CSE464,Internet of things
+AIE,E4,CSE475,High Performance Computing
+AIE,E4,CSE485,Computer Games Theory
+AIE,E4,CSE487,Mixed & Augmented Reality
+AIE,E4,CSE488,Visualization & Animation
+AIE,E4,AIE314,AI-Based Programming
+AIE,E5,AIE315,Computational Logic
+AIE,E5,AIE316,Evolutionary Algorithms
+AIE,E5,AIE322,Advanced Machine Learning
+AIE,E5,AIE342,Advanced Methods for Data Analysis
+AIE,E5,AIE343,Machine Learning for Text Mining
+AIE,E5,AIE417,Selected Topics in Artificial Intelligence 1
+AIE,E5,AIE424,Intelligent Decision Support Systems
+AIE,E5,AIE425,Intelligent Recommender Systems
+AIE,E5,AIE444,Question Answering Systems
+AIE,E6,AIE418,Selected Topics in Artificial Intelligence 2
+AIE,E6,AIE426,Decision Making Under Uncertainty
+AIE,E6,AIE427,Statistical Pattern Recognition
+AIE,E6,AIE452,Cognitive Robotics
+AIE,E6,AIE453,Planning Techniques for Robotics
+AIE,E6,AIE454,Robot Kinematics & Dynamics
+AIE,E6,AIE455,Robot Mapping & Localization
+AIE,E6,AIE456,Human Robot Interaction
+AIE,E6,AIE457,Mobile Robot Development
+AIS,E1,CSE211,Web Programming
+AIS,E1,CSE234,Embedded Systems
+AIS,E1,CSE271,Introduction to Parallel Computing
+AIS,E1,CSE322,Big Data Analytics 1
+AIS,E1,CSE344,Introduction to Cyber Security
+AIS,E1,CSE382,Computer Graphics
+AIS,E1,CSE383,Computer Vision
+AIS,E1,CSE411,Theory of Computation & Compilers
+AIS,E2,CSE464,Internet of things
+AIS,E2,CSE475,High Performance Computing
+AIS,E2,CSE485,Computer Games Theory
+AIS,E2,AIE315,Computational Logic
+AIS,E2,AIE316,Evolutionary Algorithms
+AIS,E2,AIE317,Selected Topics in Artificial Intelligence 1
+AIS,E2,AIE342,Advanced Methods for Data Analysis
+AIS,E2,AIE343,Machine Learning for Text Mining
+AIS,E2,AIE351,Robotics Design
+AIS,E3,CSE487,Mixed & Augmented Reality
+AIS,E3,CSE488,Visualization & Animation
+AIS,E3,AIE418,Selected Topics in Artificial Intelligence 2
+AIS,E3,AIE424,Intelligent Decision Support Systems
+AIS,E3,AIE426,Decision Making Under Uncertainty
+AIS,E3,AIE427,Statistical Pattern Recognition
+AIS,E3,AIE444,Question Answering Systems
+AIS,E3,AIE457,Mobile Robot Development
+CS,E1,CSE234,Embedded Systems
+CS,E1,CSE271,Introduction to Parallel Computing
+CS,E1,CSE281,Image Processing
+CS,E1,CSE313,Mobile Programming
+CS,E2,CSE322,Big Data Analytics 1
+CS,E2,AIE212,Knowledge-Based Systems
+CS,E2,AIE231,Neural Networks
+CS,E2,AIE241,Natural Language Processing
+CS,E3,CSE312,Advanced Web Programming
+CS,E3,CSE464,Internet of things
+CS,E3,AIE343,Machine Learning for Text Mining
+CS,E3,AIE424,Intelligent Decision Support Systems
+CS,E3,AIE425,Intelligent Recommender Systems
+CS,E4,CSE426,Selected Topics in Data Science
+CS,E4,CSE424,Data Warehousing
+CS,E4,CSE453,Building Information Systems
+CS,E4,CSE455,Selected Topics in Software Engineering
+CS,E5,AIE332,Deep Learning
+CS,E5,AIE342,Advanced Methods for Data Analysis
+CS,E5,AIE314,AI-Based Programming
+CS,E5,AIE322,Advanced Machine Learning
+CE,E1,CHE142,Engineering Chemistry
+CE,E1,MAT121,Dynamics
+CE,E1,MAT122,Statics
+CE,E1,MAT315,Numerical Analysis
+CE,E1,PHY211,Physics II
+CE,E2,ELE115,Electrical Circuits & Measurements
+CE,E2,ELE215,Electronics & Digital Circuits
+CE,E2,ELE232,Fundamentals of Communication Systems
+CE,E2,ELE233,Automatic Control Systems
+CE,E2,ELE338,Wireless Communication Networks
+CE,E3,CSE271,Introduction to Parallel Computing
+CE,E3,CSE281,Image Processing
+CE,E3,CSE382,Computer Graphics
+CE,E3,AIE231,Neural Networks
+CE,E4,CSE311,Design of Compilers
+CE,E4,CSE322,Big Data Analytics 1
+CE,E4,CSE335,Real Time & Embedded Systems Design
+CE,E4,CSE383,Computer Vision
+CE,E5,AIE322,Advanced Machine Learning
+CE,E5,AIE323,Data Mining
+CE,E5,AIE332,Deep Learning
+CE,E5,AIE351,Robotics Design
+CE,E6,CSE272,Parallel & Distributed Systems
+CE,E6,CSE425,Big Data Analytics 2
+CE,E6,CSE448,Cyber Forensics
+CE,E6,BMD311,Introduction to Bioinformatics
